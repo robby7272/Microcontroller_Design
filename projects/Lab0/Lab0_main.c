@@ -9,8 +9,8 @@
 // Microchip libraries
 
 #define PART1 0
-#define PART2 0
-#define NOPS_FOR_5MS 5000
+#define PART2 1
+#define NOPS_FOR_5MS 6000
 
 // **** Set any macros or preprocessor directives here ****
 
@@ -45,10 +45,16 @@ int main()
     }
     
     while (PART2) {
-        PORTE = 0x01;
+        PORTE = 0x00;
         while (1) {
             PORTE++;
-            NOP_delay_5ms();
+            int i; 
+            for ( i =0; i < 50; i++) {
+                if (PORTFbits.RF1 == 1) {
+                PORTE = 0x00;
+                }
+                NOP_delay_5ms();
+            }
         }
     }
 

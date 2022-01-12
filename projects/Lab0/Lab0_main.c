@@ -9,8 +9,8 @@
 // Microchip libraries
 
 #define PART1 0
-#define PART2 1
-#define NOPS_FOR_5MS 6000000
+#define PART2 0
+#define NOPS_FOR_5MS 5000
 
 // **** Set any macros or preprocessor directives here ****
 
@@ -45,11 +45,11 @@ int main()
     }
     
     while (PART2) {
-            
-        NOP_delay_5ms();
-        PORTEbits.RE0 = 1;
-        NOP_delay_5ms();
-        PORTEbits.RE0 = 0;
+        PORTE = 0x01;
+        while (1) {
+            PORTE++;
+            NOP_delay_5ms();
+        }
     }
 
     //initialize state machine (and anything else you need to init) here

@@ -35,15 +35,15 @@
 int Protocol_Init(void) {
 
     // Step 1 clear control registers
-    U1STA = 0; 
+    U1STA = 0;
     // Step 2 calculate baud rate
     U1BRG = 21; // Table 21-2 and 21.5.3
     // Step 3 Set UART1 for 8n1
     U1MODEbits.PDSEL = 0b00; // 8 bit data, no parity
     U1MODEbits.STSEL = 0b0; // 1 stop bit
     // Step 4 Enable UART1
-    U1MODEbits.UARTEN = 1; //UART Enable
-    U1MODEbits.ON = 1; // UART1 On
+    U1MODEbits.UARTEN = 0; //UART Enable
+    
     // Step 5 Enable TX
     U1STAbits.UTXEN = 1; // Enable transmission bit
     // Step 6 Enable RX
@@ -55,9 +55,9 @@ int Protocol_Init(void) {
     //IPC6bits.U1IS = 0b11; // Interrupt priority ??
     IEC0bits.U1TXIE = 1; // Transmit interrupt enable
     U1STAbits.OERR = 0; // Set receive buffer low, has not overflowed
-    U1STAbits.UTXISEL = 0b10; // Generate interrupt when TX buffer empty
+    //U1STAbits.UTXISEL = 0b10; // Generate interrupt when TX buffer empty
     U1STAbits.URXISEL = 0b00; // Generate interrupt when RX buffer not empty
-    
+    U1MODEbits.ON = 1; // UART1 On
    
 }
 
@@ -171,7 +171,7 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn);
  * @brief adds to circular buffer if space exists, if not returns ERROR
  * @author mdunne */
 int PutChar(char ch) {
-    if (U1STAbits.UTXBF == 0) {
+    if (U1STAbits.TRMT == 1) {
         U1TXREG = ch;
 
         return 1;
@@ -201,10 +201,12 @@ int PutChar(char ch) {
 
 
 int main() {
+    BOARD_Init();
     Protocol_Init();
+    
     char test = '6';
+    U1TXREG = test;
+    //PutChar(test);
     
-    PutChar(test);
-    
-
+    while(1);
 }

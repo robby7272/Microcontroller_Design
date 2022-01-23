@@ -1,39 +1,32 @@
 /*
- * File:   BOARD.h
- * Author: Max Dunne
+ * File:   BOARD.c
+ * Author: Max
  *
  * Created on December 19, 2012, 2:08 PM
- * 
- * Much of the odder code come directly from the microchip peripheral library as reinventing the wheel seemed
- * not necessary
  */
+#ifdef _SUPPRESS_PLIB_WARNING
+#undef _SUPPRESS_PLIB_WARNING
+#endif
 
 #include "BOARD.h"
-
-// Microchip Libraries
-#ifdef PIC32
 #include <xc.h>
-#endif
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 
-// no legacy libc
-#ifdef PIC32
-#ifdef __C32_LEGACY_LIBC__
-#error CSE13E Can not be done with legacy libc. Ensure project properties -> XC32 (Global Options) -> Use legacy libc is UN checked. 
-#endif
-#endif
+
+
+
+//#define _SUPPRESS_PLIB_WARNING
+//#include <plib.h>
+//#include <peripheral/osc.h>
+//#include <peripheral/lock.h>
 
 /*******************************************************************************
  * PRAGMAS                                                                     *
  ******************************************************************************/
 // Configuration Bits
 // SYSCLK = 80MHz
-// PBCLK  = 20MHz
+// PBCLK  = 40MHz
 // using POSC w/ PLL, XT mode
-#ifdef PIC32
-#pragma config FPBDIV     = DIV_4
+#pragma config FPBDIV     = DIV_2
 #pragma config FPLLIDIV   = DIV_2     // Set the PLL input divider to 2, seems to
 #pragma config IESO       = OFF       // Internal/External Switch
 #pragma config POSCMOD    = XT        // Primary Oscillator Configuration for XT osc mode
@@ -48,251 +41,130 @@
 #pragma config FNOSC 		= PRIPLL	//Oscillator Selection Bits
 #pragma config FSOSCEN 		= OFF		//Secondary Oscillator Enable
 #pragma config FPLLMUL 		= MUL_20	//PLL Multiplier
-#pragma config FPLLODIV 	= DIV_1 	//System PLL Output Clock Divid
-#endif
+#pragma config FPLLODIV 	= DIV_1 	//System PLL Output Clock Divide
+
+
+
+
 /*******************************************************************************
  * PRIVATE #DEFINES                                                            *
  ******************************************************************************/
+
 #define SYSTEM_CLOCK 80000000L
-#define PB_CLOCK (SYSTEM_CLOCK / 4)
-#define QUEUESIZE 512
-//#define TurnOffAndClearInterrupt(Name) INTEnable(Name,INT_DISABLED); INTClearFlag(Name)
-#define TurnPortToInput(Tris) Tris=0xFFFF
-
-
-//#define LAB10_READ_OVERWRITE
-/*******************************************************************************
- * PRIVATE DATATYPES                                                           *
- ******************************************************************************/
-
-
-
-/*******************************************************************************
- * PRIVATE FUNCTION PROTOTYPES                                                 *
- ******************************************************************************/
-void SERIAL_Init(void);
-
-/*******************************************************************************
- * PRIVATE VARIABLES                                                           *
- ******************************************************************************/
-
-
-/*******************************************************************************
- * PUBLIC FUNCTIONS                                                            *
- ******************************************************************************/
+#define  PB_CLOCK SYSTEM_CLOCK/2
+#define TurnOffAndClearInterrupt(Name) INTEnable(Name,INT_DISABLED); INTClearFlag(Name)
 
 /**
- * Function: BOARD_Init(void)
+ * @function BOARD_Init(void)
  * @param None
  * @return None
- * @brief Initializes the board for 80MHz SYSCLK and 20MHz PBCLK.
- */
-void BOARD_Init() {
-#ifdef PIC32
-    //seeds the random number generator with the time
-    char seed1[] = __TIME__;
-    unsigned int seed2 = (((unsigned int) (seed1[7] ^ seed1[2])) << 8) | ((unsigned int) (seed1[4] ^ seed1[6]));
-    srand(seed2);
+ * @brief Set the clocks up for the board, initializes the serial port, and turns on the A/D
+ *        subsystem for battery monitoring
+ * @author Max Dunne, 2013.09.15  */
+void BOARD_Init()
+{
+    //sets the system clock to the optimal frequency given the system clock
+    //SYSTEMConfig(SYSTEM_CLOCK, SYS_CFG_WAIT_STATES | SYS_CFG_PCACHE);
+    //sets the divisor to 2 to ensure 40Mhz peripheral bus
+    //OSCSetPBDIV(OSC_PB_DIV_2);
 
-    //enables the interrupt system in the new style
+
+    //disables all A/D pins for a clean start
+    AD1PCFG = 0xffff;
     
-    //INTConfigureSystem(INT_SYSTEM_CONFIG_MULT_VECTOR); 
-    unsigned int val;
+    // get rid of JTAG before it kills us
+    DDPCONbits.JTAGEN = 0;
+    
+    //enables the interrupt system in the new style
+    //    INTConfigureSystem(INT_SYSTEM_CONFIG_MULT_VECTOR);
+    //    INTEnableInterrupts();
 
+    // this section of code comes from microchips deprecated plib
+    // dealing with the interrupt handler is tricky enough to the point of I have no desire to re-invent the wheel
+
+    unsigned int val;
     // set the CP0 cause IV bit high
     asm volatile("mfc0   %0,$13" : "=r"(val));
     val |= 0x00800000;
     asm volatile("mtc0   %0,$13" : "+r"(val));
     INTCONSET = _INTCON_MVEC_MASK;
-    
-    //INTEnableInterrupts();
-    int status;
+    unsigned int status = 0;
     asm volatile("ei    %0" : "=r"(status));
-    // Initialize for serial
-    SERIAL_Init();
-#endif
+
+
+    //printf("CMPE118 IO stack is now initialized\r\n");
+
 }
 
 /**
- * Function: BOARD_End(void)
+ * @function BOARD_End(void)
  * @param None
  * @return None
- * @brief shuts down all peripherals except for serial and A/D. Turns all pins
- * into input
+ * @brief Shuts down all peripherals except for serial and A/D. Turns all pins into input
  * @author Max Dunne, 2013.09.20  */
-void BOARD_End() {
-#ifdef PIC32
-    // set all interrupt enable flags to zero
-    IEC0 = 0;
-    IEC1 = 0;
+void BOARD_End()
+{
 
-    //set all flags to zero
-    IFS0 = 0;
-    IFS1 = 0;
+    // kill off all interrupts except serial and clear their flags
+    IEC0CLR = ~(_IEC0_U1TXIE_MASK | _IEC0_U1RXIE_MASK);
+    IFS0CLR = ~(_IFS0_U1TXIF_MASK | _IFS0_U1RXIF_MASK);
 
-    // disable timer interrupts, clear flags and turn off module
-    T1CON = 0;
-    T2CON = 0;
-    T3CON = 0;
-    T4CON = 0;
-    T5CON = 0;
-
-
-    // disable input capture interrupts, clear flags and turn off module
-    IC1CONCLR = _IC1CON_ICM_MASK;
-    IC2CONCLR = _IC2CON_ICM_MASK;
-    IC3CONCLR = _IC3CON_ICM_MASK;
-    IC4CONCLR = _IC4CON_ICM_MASK;
-    IC5CONCLR = _IC5CON_ICM_MASK;
-
-    // disable output compare interrupts, clear flags and turn off module
-    OC1CONCLR = _OC1CON_ON_MASK;
-    OC2CONCLR = _OC2CON_ON_MASK;
-    OC3CONCLR = _OC3CON_ON_MASK;
-    OC4CONCLR = _OC4CON_ON_MASK;
-    OC5CONCLR = _OC5CON_ON_MASK;
-
-    // disable I2C interrupts, clear flags and turn off module
-    I2C1CONCLR = _I2C1CON_ON_MASK;
-    I2C2CONCLR = _I2C2CON_ON_MASK;
-
-    //disable spi interrupts, clear flags and turn off module
-    SPI1CONCLR = _SPI1CON_ON_MASK;
-    SPI2CONCLR = _SPI2CON_ON_MASK;
-
-    // disable external interrupts, clear flags and turn off module
+    // kill off all interrupts except A/D and clear their flags
+    IEC1CLR = ~(_IEC1_AD1IE_MASK);
+    IFS0CLR = ~(_IFS1_AD1IF_MASK);
 
     // set all ports to be digital inputs
-    TurnPortToInput(TRISB);
-    TurnPortToInput(TRISC);
-    TurnPortToInput(TRISD);
-    TurnPortToInput(TRISE);
-    TurnPortToInput(TRISF);
-    TurnPortToInput(TRISG);
+    TRISB = 0xff;
+    TRISC = 0xff;
+    TRISD = 0xff;
+    TRISE = 0xff;
+    TRISF = 0xff;
+    TRISG = 0xff;
 
-#else
-    exit(0);
-#endif   
+
 }
 
 /**
- * Function: BOARD_GetPBClock(void)
+ * @function BOARD_GetPBClock(void)
  * @param None
- * @return
- */
-unsigned int BOARD_GetPBClock() {
+ * @return PB_CLOCK - Speed the peripheral clock is running in hertz
+ * @brief Returns the speed of the peripheral clock.  Nominally at 40Mhz
+ * @author Max Dunne, 2013.09.01  */
+unsigned int BOARD_GetPBClock()
+{
     return PB_CLOCK;
 }
-
-/**
- * Function: BOARD_GetSysClock(void)
- * @param None
- * @return
- */
-unsigned int BOARD_GetSysClock() {
-    return SYSTEM_CLOCK;
-}
-
-/*******************************************************************************
- * PRIVATE FUNCTIONS                                                           *
- ******************************************************************************/
-
-/**
- * @Function SERIAL_Init(void)
- * @param none
- * @return none
- * @brief  Initializes the UART subsystem to 115200 and sets up the circular buffer
- * @author Max Dunne, 2011.11.10 */
-
-void SERIAL_Init(void) {
-#ifdef PIC32
-    // we first clear the Configs Register to ensure a blank state and peripheral is off.
-    U1MODE = 0;
-    U1STA = 0;
-    //UARTConfigure(UART1, 0x00);
-
-    //we then calculate the required frequency, note that this comes from plib source to avoid rounding errors
-    int sourceClock = BOARD_GetPBClock() >> 3;
-    int brg = sourceClock / 115200;
-    brg++;
-    brg >>= 1;
-    brg--;
-    U1BRG = brg;
-    //UARTSetDataRate(UART1, PB_CLOCK, 115200);
-    //UARTSetFifoMode(UART1, UART_INTERRUPT_ON_RX_NOT_EMPTY | UART_INTERRUPT_ON_RX_NOT_EMPTY);
-
-    //we now enable the device
-
-    U1STAbits.UTXEN = 1;
-    U1STAbits.URXEN = 1;
-    U1MODEbits.UARTEN = 1;
-
-    //UARTEnable(UART1, UART_ENABLE_FLAGS(UART_PERIPHERAL | UART_TX | UART_RX));
-    __XC_UART = 1;
-    //printf("\r\n%d\t%d",U1BRG,brg);
-#endif
-}
-
-
-
-/*******************************************************************************
- * OVERRIDE FUNCTIONS                                                          *
- ******************************************************************************/
-
-/**
- * @Function read(int handle, void *buffer, unsigned int len)
- * @param handle
- * @param buffer
- * @param len
- * @return Returns the number of characters read into buffer
- * @brief Overrides the built-in function called for scanf() to ensure proper functionality
- */
-#ifdef PIC32
-#ifndef LAB10_READ_OVERWRITE
-
-int read(int handle, char *buffer, unsigned int len) {
-    int i;
-    if (handle == 0) {
-        while (!U1STAbits.URXDA) {
-            if (U1STAbits.OERR) {
-                U1STAbits.OERR = 0;
-            }
-            continue;
-        }
-        i = 0;
-        while (U1STAbits.URXDA) {
-            char tmp = U1RXREG;
-            if (tmp == '\r') {
-                tmp = '\n';
-            }
-            *(char*) buffer++ = tmp;
-            //WriteUART1(tmp);
-            U1TXREG = tmp;
-            i++;
-        }
-        return i;
-    }
-    return 0;
-}
-#endif
-#endif
 
 
 #ifdef BOARD_TEST
 
-int main(void) {
+
+#define MAXPOWTWO 20
+
+int main(void)
+{
     BOARD_Init();
-    printf("\r\nThis stub tests SERIAL Functionality with scanf");
-    printf("\r\nIt will intake integers and divide by 2");
-    printf("\r\n Peripheral Clock: %d", BOARD_GetPBClock());
-    printf("\r\n Peripheral Clock: %d\r\n", BOARD_GetSysClock());
-    char trash;
-    int input;
+
+    //    int curPow2 = 12;
+    //    int i;
+    TRISDbits.TRISD4 = 0;
+    LATDbits.LATD4 = 0;
+    //will do a pulse of each power of two
+    //using scope can determine the length of timing for nops in test harnesses
+    //    for(curPow2=0;curPow2<=MAXPOWTWO;curPow2++)
+    //    {
+    //    while (1) {
+    //        LATDbits.LATD4 ^= 1;
+    //        for (i = 0; i < 1830000; i++) {
+    //            asm("nop");
+    //        }
+    //        //LATDbits.LATD4 = 0;
+    //    }
+    //will need a scope to test this module, the led should blink at the maximum rate
     while (1) {
-        scanf("%d%c", &input, &trash);
-        printf("\r\nEntered: %d\t/2: %d\r\n", input, input / 2);
+        LATDbits.LATD4 ^= 1;
     }
-    while (1);
-    return 0;
 }
+
+
 #endif

@@ -2,17 +2,18 @@
 // Standard libraries
 #include <stdio.h>
 #include "Protocol.h"
-
+#include "TXBuffer.h"
 //CSE13E Support Library
 
-#define bufferLength 12
 
 
-static struct {
-    unsigned int head;
-    unsigned int tail;
-    char data[bufferLength];
-} circBuffer;
+void bufferInit(int bufferLength) {
+    static struct {
+        unsigned int head;
+        unsigned int tail;
+        char data[bufferLength];
+    } circBuffer;
+}
 
 int bufferFull() {
     if ((circBuffer.tail + 1) % bufferLength == circBuffer.head) {

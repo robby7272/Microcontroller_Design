@@ -4,9 +4,11 @@
  *
  * Created on August 15, 2019, 9:24 AM
  */
-
+#include <stdio.h>
 #include "Protocol.h"
 #include "BOARD.h"
+#include <sys/attribs.h>
+#include "TXBuffer.h"
 /*******************************************************************************
  * PUBLIC #DEFINES                                                            *
  ******************************************************************************/
@@ -17,10 +19,16 @@
 #define HEAD 204
 #define TAIL 185
 
+#define bufferLength 10
+int count = 0;
 /*******************************************************************************
- * PUBLIC DATATYPES
+ * private DATATYPES
  ******************************************************************************/
-
+    static struct {
+        unsigned int head;
+        unsigned int tail;
+        char data[bufferLength];
+    } circBuffer;
 
 
 /*******************************************************************************
@@ -43,7 +51,7 @@ int Protocol_Init(void) {
     U1MODEbits.STSEL = 0b0; // 1 stop bit
     // Step 4 Enable UART1
     U1MODEbits.UARTEN = 0; //UART Enable
-    
+    U1MODEbits.ON = 1; // UART1 On
     // Step 5 Enable TX
     U1STAbits.UTXEN = 1; // Enable transmission bit
     // Step 6 Enable RX
@@ -51,13 +59,12 @@ int Protocol_Init(void) {
     
     IFS0bits.U1TXIF = 0; // clear transmit interrupt flag
     IFS0bits.U1RXIF = 0; // clear receive interrupt flag
-    //IPC6bits.U1IP = 0b00; // Interrupt priority ?
+    IPC6bits.U1IP = 3; // Interrupt priority ?
     //IPC6bits.U1IS = 0b11; // Interrupt priority ??
     IEC0bits.U1TXIE = 1; // Transmit interrupt enable
     U1STAbits.OERR = 0; // Set receive buffer low, has not overflowed
-    //U1STAbits.UTXISEL = 0b10; // Generate interrupt when TX buffer empty
+    U1STAbits.UTXISEL = 0b10; // Generate interrupt when TX buffer empty
     U1STAbits.URXISEL = 0b00; // Generate interrupt when RX buffer not empty
-    U1MODEbits.ON = 1; // UART1 On
    
 }
 
@@ -171,12 +178,61 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn);
  * @brief adds to circular buffer if space exists, if not returns ERROR
  * @author mdunne */
 int PutChar(char ch) {
-    if (U1STAbits.TRMT == 1) {
-        U1TXREG = ch;
+    if (bufferFull() == 0) {
+        bufferAdd(ch);
+    }
+    if (U1STAbits.TRMT == 1) { // UART is idle
+        IFS0bits.U1TXIF = 1; // cause interrupt
+    }
+    
+}
 
+void __ISR(_UART1_VECTOR) IntUart1Handler(void) {
+    LEDS_SET(0xFF);
+    
+    while (bufferEmpty() == 0) {
+        while(U1STAbits.TRMT == 0);
+        U1TXREG = bufferRemove();
+    }
+    IFS0bits.U1TXIF = 0;
+
+}
+
+
+int bufferFull() {
+    if ((circBuffer.tail + 1) % bufferLength == circBuffer.head) {
         return 1;
     }
     return 0;
+}
+
+void bufferAdd(char c) {
+    if (bufferFull() == 0) {
+        circBuffer.data[circBuffer.tail] = c;
+        circBuffer.tail = (circBuffer.tail + 1) % bufferLength;
+    }
+}
+
+int bufferEmpty() {
+    if (circBuffer.head == circBuffer.tail) {
+        return 1;
+    }
+    return 0;
+}
+
+char bufferRemove() {
+    if (bufferEmpty() == 0) {
+        char c = circBuffer.data[circBuffer.head];
+        circBuffer.head = (circBuffer.head + 1) % bufferLength;
+        return c;
+    }
+}
+
+int bufferCount() {
+    if (circBuffer.tail > circBuffer.head) {
+        return circBuffer.tail-circBuffer.head;
+    }
+    return bufferLength-(circBuffer.head-circBuffer.tail);
 }
 
 
@@ -200,13 +256,40 @@ int PutChar(char ch) {
 #define LEDS_SET(leds) do { LATE = (leds); } while (0)
 
 
+
+int main() {
+    BOARD_Init();
+    LEDS_INIT();
+    Protocol_Init();
+    
+    
+    char test[13] = "lets go";
+    for (int i = 0; i < 7; i++) {
+        PutChar(test[i]);
+    }
+
+    circBuffer.data;
+    while(1);
+}
+
+
+
+
+
+
+//#define blocking_code_UART
+#ifdef blocking_code_UART
 int main() {
     BOARD_Init();
     Protocol_Init();
     
-    char test = '6';
-    U1TXREG = test;
+    char test[13] = "Hello, World!";
+    for (int i = 0; i < 13; i++) {
+        while(U1STAbits.TRMT == 0);
+        PutChar(test[i]);
+    }
     //PutChar(test);
     
     while(1);
 }
+#endif

@@ -5,6 +5,7 @@
  * Created on August 15, 2019, 9:24 AM
  */
 #include <stdio.h>
+#include <string.h>
 #include "Protocol.h"
 #include "BOARD.h"
 #include <sys/attribs.h>
@@ -21,6 +22,7 @@
 
 #define bufferLength 10
 int count = 0;
+int ech = 0;
 /*******************************************************************************
  * private DATATYPES
  ******************************************************************************/
@@ -60,8 +62,9 @@ int Protocol_Init(void) {
     IFS0bits.U1TXIF = 0; // clear transmit interrupt flag
     IFS0bits.U1RXIF = 0; // clear receive interrupt flag
     IPC6bits.U1IP = 3; // Interrupt priority ?
-    //IPC6bits.U1IS = 0b11; // Interrupt priority ??
+    IPC6bits.U1IS = 2; // Interrupt priority ??
     IEC0bits.U1TXIE = 1; // Transmit interrupt enable
+    IEC0bits.U1RXIE = 1; // Reception interrupt enable
     U1STAbits.OERR = 0; // Set receive buffer low, has not overflowed
     U1STAbits.UTXISEL = 0b10; // Generate interrupt when TX buffer empty
     U1STAbits.URXISEL = 0b00; // Generate interrupt when RX buffer not empty
@@ -184,18 +187,26 @@ int PutChar(char ch) {
     if (U1STAbits.TRMT == 1) { // UART is idle
         IFS0bits.U1TXIF = 1; // cause interrupt
     }
-    
+    if (U1STAbits.URXDA == 1) { // Receiver has data
+        IFS0bits.U1RXIF = 1; // cause interrupt
+    }
 }
 
 void __ISR(_UART1_VECTOR) IntUart1Handler(void) {
-    LEDS_SET(0xFF);
     
-    while (bufferEmpty() == 0) {
-        while(U1STAbits.TRMT == 0);
-        U1TXREG = bufferRemove();
+    if (IFS0bits.U1TXIF == 1) {
+        
+        while (bufferEmpty() == 0) {
+            while(U1STAbits.TRMT == 0);
+            U1TXREG = bufferRemove();
+        }
+        IFS0bits.U1TXIF = 0;
     }
-    IFS0bits.U1TXIF = 0;
+    else {
+        ech = U1RXREG;
 
+        IFS0bits.U1RXIF = 0;
+    }
 }
 
 
@@ -257,39 +268,41 @@ int bufferCount() {
 
 
 
+#define echo
+#ifdef echo
+int main() {
+    BOARD_Init();
+    LEDS_INIT();
+    Protocol_Init();
+
+    while(1) {
+        if (ech != 0) {
+            PutChar(ech);
+            ech = 0;
+        }
+    }
+}
+#endif
+
+
+//#define TX_buffer
+#ifdef TX_buffer
 int main() {
     BOARD_Init();
     LEDS_INIT();
     Protocol_Init();
     
     
-    char test[13] = "lets go";
-    for (int i = 0; i < 7; i++) {
-        PutChar(test[i]);
-    }
-
-    circBuffer.data;
-    while(1);
-}
-
-
-
-
-
-
-//#define blocking_code_UART
-#ifdef blocking_code_UART
-int main() {
-    BOARD_Init();
-    Protocol_Init();
-    
     char test[13] = "Hello, World!";
     for (int i = 0; i < 13; i++) {
-        while(U1STAbits.TRMT == 0);
         PutChar(test[i]);
     }
-    //PutChar(test);
-    
-    while(1);
 }
 #endif
+
+
+
+
+
+
+

@@ -21,7 +21,7 @@
 #define HEAD 204
 #define TAIL 185
 
-#define bufferLength 15
+#define bufferLength 255 // has to be 2^n -1
 int ech = 0;
 /*******************************************************************************
  * private DATATYPES
@@ -104,7 +104,7 @@ int Protocol_SendMessage(unsigned char len, unsigned char ID, void *Payload) {
     char curChecksum = ID;
     PutChar(ID);
     for (int i = 0; i<len; i++) {
-        curChecksum = Protocol_CalcIterativeChecksum(5, curChecksum);
+        curChecksum = Protocol_CalcIterativeChecksum(*load, curChecksum);
         PutChar(*load++);
     }
     PutChar(0xB9);
@@ -170,15 +170,20 @@ char Protocol_IsError(void);
  * @return converted short
  * @brief Converts endedness of a short. This is a bi-directional operation so only one function is needed
  * @author mdunne */
-unsigned short Protocol_ShortEndednessConversion(unsigned short inVariable);
+unsigned short Protocol_ShortEndednessConversion(unsigned short inVariable) {
+    return (inVariable << 8) | (inVariable >> 8); // stackoverflow
+}
 
 /**
  * @Function char Protocol_IntEndednessConversion(unsigned int inVariable)
  * @param inVariable, int to convert endedness
- * @return converted short
+ * @return converted int
  * @brief Converts endedness of a int. This is a bi-directional operation so only one function is needed
  * @author mdunne */
-unsigned int Protocol_IntEndednessConversion(unsigned int inVariable);
+unsigned int Protocol_IntEndednessConversion(unsigned int inVariable) {
+    inVariable = ((inVariable << 8) & 0xFF00FF00 ) | ((inVariable >> 8) & 0xFF00FF ); 
+    return (inVariable << 16) | (inVariable >> 16); // stackoverflow
+}
 
 /*******************************************************************************
  * PRIVATE FUNCTIONS
@@ -223,7 +228,7 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
             state = SETUPLEDS;
         }
         else if (charIn == ID_LEDS_GET) {
-            state = GETLEDS;
+            state = TAILS;
         }
         else {
             RX_State_Machine.data[count] = charIn;
@@ -253,17 +258,29 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
         }
         else {
             state = START;
+            count = 0;
+            RX_State_Machine.length = 0;
         }
     }
     else if (state == CHECKSUM) {
-        if (ledState != LEDS_GET()) { 
+        if (ledState != LEDS_GET()) { // special case LED SET
             LEDS_SET(ledState);
         }
-        if (checkSum == charIn) {
-            //LEDS_SET(0xFF);
+        else if (charIn == ID_LEDS_GET) { // special case LED GET
+            unsigned char ledsget = LATE & 0xFF;
+            Protocol_SendMessage(1, ID_LEDS_STATE, &ledsget);
+
         }
-        checkSum = 0;
-        state = START;
+        else if (checkSum == charIn) { // correct checksum
+            checkSum = 0;
+            state = START;
+            count = 0;
+        } else {
+            checkSum = 0;
+            state = START;
+            RX_State_Machine.length = 0;
+            count = 0;
+        }
     }
 }
 
@@ -274,7 +291,7 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
  * @brief adds to circular buffer if space exists, if not returns ERROR
  * @author mdunne */
 int PutChar(char ch) {
-    if (bufferFull() == 0) {
+    if (bufferFull() == 0) { // buffer not full
         bufferAdd(ch);
     }
     if (U1STAbits.TRMT == 1) { // UART is idle
@@ -288,9 +305,8 @@ int PutChar(char ch) {
 void __ISR(_UART1_VECTOR) IntUart1Handler(void) {
     
     if (IFS0bits.U1TXIF == 1) {
-        
-        while (bufferEmpty() == 0) {
-            while(U1STAbits.TRMT == 0);
+        while (bufferEmpty() == 0) { // not empty
+            while(U1STAbits.TRMT == 0); // wait for previous transmission to finish
             U1TXREG = bufferRemove();
         }
         IFS0bits.U1TXIF = 0;
@@ -360,15 +376,38 @@ int bufferCount() {
 #define LEDS_SET(leds) do { LATE = (leds); } while (0)
 
 
-#define test
+#define endian
+#ifdef endian
+int main() {
+    BOARD_Init();
+    LEDS_INIT();
+    Protocol_Init();
+    unsigned short x = 0x1234;
+    unsigned short y = Protocol_ShortEndednessConversion(x);
+    unsigned int a = 0x12345678;
+    unsigned int b = Protocol_IntEndednessConversion(a);
+    while(1);
+}
+#endif
+
+
+
+
+
+
+
+
+
+
+//#define test
 #ifdef test
 int main() {
     BOARD_Init();
     LEDS_INIT();
     Protocol_Init();
 
-    //char str[7] = "O123456";
-    //Protocol_SendMessage(7, ID_LEDS_SET, (&str));
+    char str[1] = "1";
+    Protocol_SendMessage(1, ID_PING, (&str));
     //unsigned char t = 0x81;
     //unsigned char check = 0;
     //check = Protocol_CalcIterativeChecksum(t, check);
@@ -377,7 +416,12 @@ int main() {
     //t = 0x00;
     //check = Protocol_CalcIterativeChecksum(t, check);
     RX_State_Machine.data;
-    while(1);
+    RX_State_Machine.length;
+    while(1) {
+        if (RX_State_Machine.length > 0) {
+            RX_State_Machine.length;
+        }
+    }
 }
 #endif 
 
@@ -415,6 +459,8 @@ int main() {
     for (int i = 0; i < 13; i++) {
         PutChar(test[i]);
     }
+    circBuffer.data;
+    while(1);
 }
 #endif
 

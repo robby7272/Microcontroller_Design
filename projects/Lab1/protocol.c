@@ -4,6 +4,7 @@
  *
  * Created on August 15, 2019, 9:24 AM
  */
+#include "MessageIDs.h"
 #include <stdio.h>
 #include <string.h>
 #include "Protocol.h"
@@ -20,8 +21,7 @@
 #define HEAD 204
 #define TAIL 185
 
-#define bufferLength 10
-int count = 0;
+#define bufferLength 15
 int ech = 0;
 /*******************************************************************************
  * private DATATYPES
@@ -32,7 +32,26 @@ int ech = 0;
         char data[bufferLength];
     } circBuffer;
 
-
+    typedef enum {
+        START = 0,
+        LENGTH,
+        ID,
+        SETUPLEDS,
+        GETLEDS,
+        PAYLOAD,
+        TAILS,
+        CHECKSUM,
+    } machineStates;
+    int state;
+    
+    static struct {
+        char length;
+        char data[MAXPAYLOADLENGTH];
+    } RX_State_Machine;
+    int count = 0;
+    unsigned char checkSum = 0;
+    unsigned char ledState = 0;
+    int updateLeds = 0;
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
  ******************************************************************************/
@@ -78,7 +97,23 @@ int Protocol_Init(void) {
  * @return SUCCESS or ERROR
  * @brief 
  * @author mdunne */
-int Protocol_SendMessage(unsigned char len, unsigned char ID, void *Payload);
+int Protocol_SendMessage(unsigned char len, unsigned char ID, void *Payload) {
+    char *load = (char*)Payload;
+    PutChar(0xCC); 
+    PutChar(len+1);
+    char curChecksum = ID;
+    PutChar(ID);
+    for (int i = 0; i<len; i++) {
+        curChecksum = Protocol_CalcIterativeChecksum(5, curChecksum);
+        PutChar(*load++);
+    }
+    PutChar(0xB9);
+    PutChar(curChecksum);
+    PutChar(0x0D);
+    PutChar(0x0A);
+    
+    return 1;
+}
 
 /**
  * @Function int Protocol_SendDebugMessage(char *Message)
@@ -172,7 +207,65 @@ unsigned char Protocol_CalcIterativeChecksum(unsigned char charIn, unsigned char
  * @brief Runs the protocol state machine for receiving characters, it should be called from 
  * within the interrupt and process the current character
  * @author mdunne */
-void Protocol_RunReceiveStateMachine(unsigned char charIn);
+void Protocol_RunReceiveStateMachine(unsigned char charIn) {
+    if (state == START) {
+        if (charIn == 0xCC) {
+            state = LENGTH;
+        }
+    }
+    else if (state == LENGTH) {
+        RX_State_Machine.length = charIn;
+        state = ID;
+    }
+    else if (state == ID) {
+        if (charIn == ID_LEDS_SET) {
+            //LEDS_SET(0xFF);
+            state = SETUPLEDS;
+        }
+        else if (charIn == ID_LEDS_GET) {
+            state = GETLEDS;
+        }
+        else {
+            RX_State_Machine.data[count] = charIn;
+            checkSum = Protocol_CalcIterativeChecksum(charIn, checkSum);
+            count++;
+            state = PAYLOAD;
+        }
+    }
+    else if (state == SETUPLEDS) {
+        ledState = charIn;
+        state = TAILS;
+    }
+    else if (state == PAYLOAD) {
+        if (count < RX_State_Machine.length) {
+            RX_State_Machine.data[count] = charIn;
+            checkSum = Protocol_CalcIterativeChecksum(charIn, checkSum);
+            count++;
+        }
+        if (count >= RX_State_Machine.length) {
+            state = TAILS;
+            count = 0;
+        }
+    }
+    else if (state == TAILS) {
+        if (charIn == 0xB9) {
+            state = CHECKSUM;
+        }
+        else {
+            state = START;
+        }
+    }
+    else if (state == CHECKSUM) {
+        if (ledState != LEDS_GET()) { 
+            LEDS_SET(ledState);
+        }
+        if (checkSum == charIn) {
+            //LEDS_SET(0xFF);
+        }
+        checkSum = 0;
+        state = START;
+    }
+}
 
 /**
  * @Function char PutChar(char ch)
@@ -203,9 +296,9 @@ void __ISR(_UART1_VECTOR) IntUart1Handler(void) {
         IFS0bits.U1TXIF = 0;
     }
     else {
-        ech = U1RXREG;
-
         IFS0bits.U1RXIF = 0;
+        ech = U1RXREG;
+        Protocol_RunReceiveStateMachine(ech);
     }
 }
 
@@ -267,8 +360,33 @@ int bufferCount() {
 #define LEDS_SET(leds) do { LATE = (leds); } while (0)
 
 
+#define test
+#ifdef test
+int main() {
+    BOARD_Init();
+    LEDS_INIT();
+    Protocol_Init();
 
-#define echo
+    //char str[7] = "O123456";
+    //Protocol_SendMessage(7, ID_LEDS_SET, (&str));
+    //unsigned char t = 0x81;
+    //unsigned char check = 0;
+    //check = Protocol_CalcIterativeChecksum(t, check);
+    //t = 0x05;
+    //check = Protocol_CalcIterativeChecksum(t, check);
+    //t = 0x00;
+    //check = Protocol_CalcIterativeChecksum(t, check);
+    RX_State_Machine.data;
+    while(1);
+}
+#endif 
+
+
+
+
+
+
+//#define echo
 #ifdef echo
 int main() {
     BOARD_Init();

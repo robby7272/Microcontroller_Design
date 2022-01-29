@@ -7,6 +7,7 @@
       <itemPath>Protocol.h</itemPath>
       <itemPath>BOARD.h</itemPath>
       <itemPath>TXBuffer.h</itemPath>
+      <itemPath>MessageIDs.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -294,6 +295,20 @@
         </C32Global>
       </item>
       <item path="TXBuffer.h" ex="true" overriding="false">
+        <C32>
+        </C32>
+        <C32-AR>
+        </C32-AR>
+        <C32-AS>
+        </C32-AS>
+        <C32-CO>
+        </C32-CO>
+        <C32-LD>
+        </C32-LD>
+        <C32CPP>
+        </C32CPP>
+        <C32Global>
+        </C32Global>
       </item>
       <Tool>
         <property key="ADC 1" value="true"/>
@@ -330,6 +345,7 @@
         <property key="UART1" value="true"/>
         <property key="UART2" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
+        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="true"/>

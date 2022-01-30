@@ -23,6 +23,7 @@
 
 #define bufferLength 255 // has to be 2^n -1
 int ech = 0;
+int ready = 0;
 /*******************************************************************************
  * private DATATYPES
  ******************************************************************************/
@@ -45,8 +46,8 @@ int ech = 0;
     int state;
     
     static struct {
-        char length;
-        char data[MAXPAYLOADLENGTH];
+        unsigned char length;
+        unsigned char data[MAXPAYLOADLENGTH];
     } RX_State_Machine;
     int count = 0;
     unsigned char checkSum = 0;
@@ -122,7 +123,24 @@ int Protocol_SendMessage(unsigned char len, unsigned char ID, void *Payload) {
  * @brief Takes in a proper C-formatted string and sends it out using ID_DEBUG
  * @warning this takes an array, do <b>NOT</b> call sprintf as an argument.
  * @author mdunne */
-int Protocol_SendDebugMessage(char *Message);
+int Protocol_SendDebugMessage(char *Message) {
+    char *load = (char*)Message;
+    PutChar(0xCC);
+    int len = strlen(load);
+    PutChar(len+1);
+    PutChar(ID_DEBUG);
+    char curChecksum = ID_DEBUG;
+    for (int i = 0; i<len; i++) {
+        curChecksum = Protocol_CalcIterativeChecksum(*load, curChecksum);
+        PutChar(*load++);
+    }
+    PutChar(0xB9);
+    PutChar(curChecksum);
+    PutChar(0x0D);
+    PutChar(0x0A);
+    
+    return 1;
+}
 
 /**
  * @Function unsigned char Protocol_ReadNextID(void)
@@ -130,7 +148,12 @@ int Protocol_SendDebugMessage(char *Message);
  * @return Reads ID of next Packet
  * @brief Returns ID_INVALID if no packets are available
  * @author mdunne */
-unsigned char Protocol_ReadNextID(void);
+unsigned char Protocol_ReadNextID(void) {
+    if (RX_State_Machine.length > 0) {
+        return RX_State_Machine.data[0];
+    }
+    return ID_INVALID;
+}
 
 /**
  * @Function int Protocol_GetPayload(void* payload)
@@ -138,7 +161,13 @@ unsigned char Protocol_ReadNextID(void);
  * @return SUCCESS or ERROR
  * @brief 
  * @author mdunne */
-int Protocol_GetPayload(void* payload);
+int Protocol_GetPayload(void* payload) {
+    if (RX_State_Machine.length > 0) {
+        payload = &RX_State_Machine.data[1];
+        return 1;
+    }
+    return 0;
+}
 
 /**
  * @Function char Protocol_IsMessageAvailable(void)
@@ -224,7 +253,6 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
     }
     else if (state == ID) {
         if (charIn == ID_LEDS_SET) {
-            //LEDS_SET(0xFF);
             state = SETUPLEDS;
         }
         else if (charIn == ID_LEDS_GET) {
@@ -275,6 +303,7 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
             checkSum = 0;
             state = START;
             count = 0;
+            ready = 1;
         } else {
             checkSum = 0;
             state = START;
@@ -376,28 +405,50 @@ int bufferCount() {
 #define LEDS_SET(leds) do { LATE = (leds); } while (0)
 
 
-#define endian
-#ifdef endian
+#define testHarness
+#ifdef testHarness
 int main() {
     BOARD_Init();
     LEDS_INIT();
     Protocol_Init();
-    unsigned short x = 0x1234;
-    unsigned short y = Protocol_ShortEndednessConversion(x);
-    unsigned int a = 0x12345678;
-    unsigned int b = Protocol_IntEndednessConversion(a);
-    while(1);
+    while (1) {
+        if (ready == 1) {
+            unsigned char g[4];
+            unsigned int i = 0;
+            char a = RX_State_Machine.data[0];
+            i = RX_State_Machine.data[4] | (RX_State_Machine.data[3] << 8) | (RX_State_Machine.data[2] << 16) | (RX_State_Machine.data[1] << 24);
+            i = Protocol_IntEndednessConversion(i);
+            i = i >> 1;
+            i = Protocol_IntEndednessConversion(i);
+            g[4] = i;
+            g[3] = i >> 8;
+            g[2] = i >> 16;
+            g[1] = i >> 24;
+            Protocol_SendMessage(RX_State_Machine.length, ID_PONG, &g);
+            RX_State_Machine.length = 0;
+            ready = 0;
+        }
+        
+    }
+    //char debugMessage[MAXPAYLOADLENGTH];
+    //sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
+    //Protocol_SendDebugMessage(debugMessage);
+    //while(1) {
+    //    if (Protocol_ReadNextID() > 0) {
+    //        char test[MAXPAYLOADLENGTH];
+    //        int count = 0;
+    //        while(count < RX_State_Machine.length) {
+    //            test[count] = RX_State_Machine.data[count+1];
+    //           count++;
+    //        }
+    //        //Protocol_SendMessage(RX_State_Machine.length, ID_PONG, &RX_State_Machine.data[1]);
+    //        char x = RX_State_Machine.data[0];
+    //        char y = RX_State_Machine.data[1];
+    //        RX_State_Machine.length = 0;
+    //    }
+    //}
 }
 #endif
-
-
-
-
-
-
-
-
-
 
 //#define test
 #ifdef test

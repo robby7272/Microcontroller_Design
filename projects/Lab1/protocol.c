@@ -22,8 +22,7 @@
 #define TAIL 185
 
 #define bufferLength 255 // has to be 2^n -1
-int ech = 0;
-int ready = 0;
+
 /*******************************************************************************
  * private DATATYPES
  ******************************************************************************/
@@ -43,16 +42,18 @@ int ready = 0;
         TAILS,
         CHECKSUM,
     } machineStates;
-    int state;
+    int state; // state of state machine
     
     static struct {
         unsigned char length;
         unsigned char data[MAXPAYLOADLENGTH];
     } RX_State_Machine;
-    int count = 0;
-    unsigned char checkSum = 0;
-    unsigned char ledState = 0;
-    int updateLeds = 0;
+    
+    int count = 0; // index for storing into RX buffer
+    unsigned char checkSum = 0; // checksum of incoming packet
+    unsigned char ledState = 0; // stores current state of LEDs
+    int ech = 0; // temp variable for Interrupt
+    int ready = 0; // flag variable for state machine
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
  ******************************************************************************/
@@ -100,9 +101,6 @@ int Protocol_Init(void) {
  * @author mdunne */
 int Protocol_SendMessage(unsigned char len, unsigned char ID, void *Payload) {
     unsigned char *load = (unsigned char*)Payload;
-    //if (ID == ID_PING) {
-    //    unsigned int *load = (unsigned int*)Payload;
-    //}
     PutChar(0xCC); 
     PutChar(len+1);
     char curChecksum = ID;
@@ -250,18 +248,18 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
             state = LENGTH;
         }
     }
-    else if (state == LENGTH) {
+    else if (state == LENGTH) { // saves length of payload
         RX_State_Machine.length = charIn;
         state = ID;
     }
-    else if (state == ID) {
+    else if (state == ID) { // checks for special IDs
         if (charIn == ID_LEDS_SET) {
             state = SETUPLEDS;
         }
         else if (charIn == ID_LEDS_GET) {
             state = TAILS;
         }
-        else {
+        else { // no special ID, start calculating checksum
             RX_State_Machine.data[count] = charIn;
             checkSum = Protocol_CalcIterativeChecksum(charIn, checkSum);
             count++;
@@ -307,10 +305,10 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
             state = START;
             count = 0;
             ready = 1;
-        } else {
+        } else { // checksum is incorrect
             checkSum = 0;
             state = START;
-            RX_State_Machine.length = 0;
+            RX_State_Machine.length = 0; // reset buffer
             count = 0;
         }
     }
@@ -325,8 +323,7 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
 int PutChar(char ch) {
     if (bufferFull() == 0) { // buffer not full
         bufferAdd(ch);
-        //if (U1STAbits.TRMT == 1) { // UART is idle
-        while(U1STAbits.TRMT == 0);
+        while(U1STAbits.TRMT == 0); // wait for previous putchar call to finish
         IFS0bits.U1TXIF = 1; // cause interrupt
         //}
         if (U1STAbits.URXDA == 1) { // Receiver has data
@@ -335,6 +332,12 @@ int PutChar(char ch) {
     }
 }
 
+/**
+ * @Function void UART Interrupt
+ * @param None
+ * @return none
+ * @brief called when one of two UART flags are raised, recieves and sends bits into buffers
+ * @author rbox */
 void __ISR(_UART1_VECTOR) IntUart1Handler(void) {
     
     if (IFS0bits.U1TXIF == 1) {
@@ -351,7 +354,12 @@ void __ISR(_UART1_VECTOR) IntUart1Handler(void) {
     }
 }
 
-
+/**
+ * @Function int bufferFull()
+ * @param None
+ * @return SUCCESS if buffer is full, FAIL if not full
+ * @brief Checks if the circular buffer is full
+ * @author rbox */
 int bufferFull() {
     if ((circBuffer.tail + 1) % bufferLength == circBuffer.head) {
         return 1;
@@ -359,6 +367,12 @@ int bufferFull() {
     return 0;
 }
 
+/**
+ * @Function void bufferAdd(char c)
+ * @param char c, new char to add to the circular buffer
+ * @return none
+ * @brief if the buffer is not full it adds char to the buffer
+ * @author rbox */
 void bufferAdd(char c) {
     if (bufferFull() == 0) {
         circBuffer.data[circBuffer.tail] = c;
@@ -366,6 +380,12 @@ void bufferAdd(char c) {
     }
 }
 
+/**
+ * @Function int bufferEmpty()
+ * @param none
+ * @return SUCCESS if buffer is empty, FAIL if not empty
+ * @brief checks if the buffer is empty
+ * @author rbox */
 int bufferEmpty() {
     if (circBuffer.head == circBuffer.tail) {
         return 1;
@@ -373,6 +393,12 @@ int bufferEmpty() {
     return 0;
 }
 
+/**
+ * @Function char bufferRemove()
+ * @param none
+ * @return char c removed from the circular buffer
+ * @brief if buffer not empty, removes data at the head position
+ * @author rbox */
 char bufferRemove() {
     if (bufferEmpty() == 0) {
         char c = circBuffer.data[circBuffer.head];
@@ -381,6 +407,12 @@ char bufferRemove() {
     }
 }
 
+/**
+ * @Function int bufferCount()
+ * @param none
+ * @return number if data in buffer
+ * @brief calculates number of data in buffer
+ * @author rbox */
 int bufferCount() {
     if (circBuffer.tail > circBuffer.head) {
         return circBuffer.tail-circBuffer.head;
@@ -415,41 +447,26 @@ int main() {
     BOARD_Init();
     LEDS_INIT();
     Protocol_Init();
+    
+    char debugMessage[MAXPAYLOADLENGTH];
+    sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
+    Protocol_SendDebugMessage(debugMessage);
+    
     while (1) {
         if (ready == 1) {
             unsigned char g[4];
             unsigned int i = 0;
-            i = RX_State_Machine.data[4] | (RX_State_Machine.data[3] << 8) | (RX_State_Machine.data[2] << 16) | (RX_State_Machine.data[1] << 24);
-            //i = Protocol_IntEndednessConversion(i);
+            i = RX_State_Machine.data[4] | (RX_State_Machine.data[3] << 8) | (RX_State_Machine.data[2] << 16) | (RX_State_Machine.data[1] << 24); // converts char array to unsingned int
             i = i >> 1;
-            //i = Protocol_IntEndednessConversion(i);
-            g[3] = i;
+            g[3] = i; // converts unsinged int to char array
             g[2] = i >> 8;
             g[1] = i >> 16;
             g[0] = i >> 24;
             Protocol_SendMessage(RX_State_Machine.length-1, ID_PONG, &g);
-            RX_State_Machine.length = 0;
-            ready = 0;
-        }
-        
+            RX_State_Machine.length = 0; // resets RX buffer
+            ready = 0; // reset flag variable
+        }   
     }
-    //char debugMessage[MAXPAYLOADLENGTH];
-    //sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
-    //Protocol_SendDebugMessage(debugMessage);
-    //while(1) {
-    //    if (Protocol_ReadNextID() > 0) {
-    //        char test[MAXPAYLOADLENGTH];
-    //        int count = 0;
-    //        while(count < RX_State_Machine.length) {
-    //            test[count] = RX_State_Machine.data[count+1];
-    //           count++;
-    //        }
-    //        //Protocol_SendMessage(RX_State_Machine.length, ID_PONG, &RX_State_Machine.data[1]);
-    //        char x = RX_State_Machine.data[0];
-    //        char y = RX_State_Machine.data[1];
-    //        RX_State_Machine.length = 0;
-    //    }
-    //}
 }
 #endif
 
@@ -460,12 +477,11 @@ int main() {
     LEDS_INIT();
     Protocol_Init();
 
-    //char str[1] = "1";
-    //Protocol_SendMessage(1, ID_PING, (&str));
-    //unsigned int s = 50;
-    //Protocol_SendMessage(1, ID_PONG, (&s));
-    0xCC05850000662CB9370D0A;
-    //PutChar(0xCC);
+    char str[1] = "1";
+    Protocol_SendMessage(1, ID_PING, (&str));
+    unsigned int s = 50;
+    Protocol_SendMessage(1, ID_PONG, (&s));
+    PutChar(0xCC);
     PutChar(0x05);
     PutChar(0x85);
     PutChar(0x00);
@@ -477,21 +493,14 @@ int main() {
     PutChar(0x0D);
     PutChar(0x0A);
             
-    //unsigned char t = 0x81;
-    //unsigned char check = 0;
-    //check = Protocol_CalcIterativeChecksum(t, check);
-    //t = 0x05;
-    //check = Protocol_CalcIterativeChecksum(t, check);
-    //t = 0x00;
-    //check = Protocol_CalcIterativeChecksum(t, check);
-    RX_State_Machine.data;
-    RX_State_Machine.length;
-    while(1) {
-        if (RX_State_Machine.length > 0) {
-            RX_State_Machine.length;
-            checkSum;
-        }
-    }
+    unsigned char t = 0x81;
+    unsigned char check = 0;
+    check = Protocol_CalcIterativeChecksum(t, check);
+    t = 0x05;
+    check = Protocol_CalcIterativeChecksum(t, check);
+    t = 0x00;
+    check = Protocol_CalcIterativeChecksum(t, check);
+    while(1);
 }
 #endif 
 

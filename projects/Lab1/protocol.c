@@ -99,7 +99,10 @@ int Protocol_Init(void) {
  * @brief 
  * @author mdunne */
 int Protocol_SendMessage(unsigned char len, unsigned char ID, void *Payload) {
-    char *load = (char*)Payload;
+    unsigned char *load = (unsigned char*)Payload;
+    //if (ID == ID_PING) {
+    //    unsigned int *load = (unsigned int*)Payload;
+    //}
     PutChar(0xCC); 
     PutChar(len+1);
     char curChecksum = ID;
@@ -322,12 +325,13 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
 int PutChar(char ch) {
     if (bufferFull() == 0) { // buffer not full
         bufferAdd(ch);
-    }
-    if (U1STAbits.TRMT == 1) { // UART is idle
+        //if (U1STAbits.TRMT == 1) { // UART is idle
+        while(U1STAbits.TRMT == 0);
         IFS0bits.U1TXIF = 1; // cause interrupt
-    }
-    if (U1STAbits.URXDA == 1) { // Receiver has data
-        IFS0bits.U1RXIF = 1; // cause interrupt
+        //}
+        if (U1STAbits.URXDA == 1) { // Receiver has data
+            IFS0bits.U1RXIF = 1; // cause interrupt
+        }
     }
 }
 
@@ -415,16 +419,15 @@ int main() {
         if (ready == 1) {
             unsigned char g[4];
             unsigned int i = 0;
-            char a = RX_State_Machine.data[0];
             i = RX_State_Machine.data[4] | (RX_State_Machine.data[3] << 8) | (RX_State_Machine.data[2] << 16) | (RX_State_Machine.data[1] << 24);
-            i = Protocol_IntEndednessConversion(i);
+            //i = Protocol_IntEndednessConversion(i);
             i = i >> 1;
-            i = Protocol_IntEndednessConversion(i);
-            g[4] = i;
-            g[3] = i >> 8;
-            g[2] = i >> 16;
-            g[1] = i >> 24;
-            Protocol_SendMessage(RX_State_Machine.length, ID_PONG, &g);
+            //i = Protocol_IntEndednessConversion(i);
+            g[3] = i;
+            g[2] = i >> 8;
+            g[1] = i >> 16;
+            g[0] = i >> 24;
+            Protocol_SendMessage(RX_State_Machine.length-1, ID_PONG, &g);
             RX_State_Machine.length = 0;
             ready = 0;
         }
@@ -457,8 +460,23 @@ int main() {
     LEDS_INIT();
     Protocol_Init();
 
-    char str[1] = "1";
-    Protocol_SendMessage(1, ID_PING, (&str));
+    //char str[1] = "1";
+    //Protocol_SendMessage(1, ID_PING, (&str));
+    //unsigned int s = 50;
+    //Protocol_SendMessage(1, ID_PONG, (&s));
+    0xCC05850000662CB9370D0A;
+    //PutChar(0xCC);
+    PutChar(0x05);
+    PutChar(0x85);
+    PutChar(0x00);
+    PutChar(0x00);
+    PutChar(0x66);
+    PutChar(0x2C);
+    PutChar(0xB9);
+    PutChar(0x37);
+    PutChar(0x0D);
+    PutChar(0x0A);
+            
     //unsigned char t = 0x81;
     //unsigned char check = 0;
     //check = Protocol_CalcIterativeChecksum(t, check);
@@ -471,6 +489,7 @@ int main() {
     while(1) {
         if (RX_State_Machine.length > 0) {
             RX_State_Machine.length;
+            checkSum;
         }
     }
 }

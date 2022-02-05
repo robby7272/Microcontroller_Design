@@ -9,6 +9,7 @@
 #include "BOARD.h"
 #include <sys/attribs.h>
 #include "Protocol.h"
+#include <stdio.h>
 
 unsigned int milliSecond = 0;
 unsigned int microSecond = 0;
@@ -60,3 +61,26 @@ void __ISR(_TIMER_5_VECTOR, ipl3auto) Timer5IntHandler(void) {
     TMR5 = 0x0;
 }
 
+#define testHarness
+#ifdef testHarness
+int main() {
+    BOARD_Init();
+    LEDS_INIT();
+    Protocol_Init();
+    FreeRunningTimer_Init();
+    
+    char leds = 0x01;
+    char debugMessage[MAXPAYLOADLENGTH];
+    char timerMessage[MAXPAYLOADLENGTH];
+    sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
+    Protocol_SendDebugMessage(debugMessage);
+    while(1) {
+        if (FreeRunningTimer_GetMilliSeconds()%2000 == 0) {
+            sprintf(timerMessage, "Milliseconds %u Microseconds %u", milliSecond, microSecond);
+            Protocol_SendDebugMessage(timerMessage);
+            LEDS_SET(leds);
+            leds = leds ^ 0x01; // flash led
+        }
+    }
+}
+#endif

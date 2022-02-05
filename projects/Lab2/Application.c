@@ -17,6 +17,8 @@
  */
 #define LEDS_SET(leds) do { LATE = (leds); } while (0)
 
+//#define application
+#ifdef application
 int main() {
     BOARD_Init();
     LEDS_INIT();
@@ -24,3 +26,4 @@ int main() {
     
     while(1);
 }
+#endif

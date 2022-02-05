@@ -61,7 +61,12 @@ void __ISR(_TIMER_5_VECTOR, ipl3auto) Timer5IntHandler(void) {
     TMR5 = 0x0;
 }
 
-#define testHarness
+int main() {
+    
+}
+
+
+//#define testHarness
 #ifdef testHarness
 int main() {
     BOARD_Init();

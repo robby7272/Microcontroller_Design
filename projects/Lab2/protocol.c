@@ -10,7 +10,7 @@
 #include "Protocol.h"
 #include "BOARD.h"
 #include <sys/attribs.h>
-#include "TXBuffer.h"
+
 /*******************************************************************************
  * PUBLIC #DEFINES                                                            *
  ******************************************************************************/
@@ -57,6 +57,10 @@
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
  ******************************************************************************/
+int bufferFull();
+void bufferAdd(char c);
+int bufferEmpty();
+char bufferRemove();
 /**
  * @Function Protocol_Init(void)
  * @param None
@@ -441,7 +445,7 @@ int bufferCount() {
 #define LEDS_SET(leds) do { LATE = (leds); } while (0)
 
 
-#define testHarness
+//#define testHarness
 #ifdef testHarness
 int main() {
     BOARD_Init();

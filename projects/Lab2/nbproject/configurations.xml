@@ -8,6 +8,7 @@
       <itemPath>FreeRunningTimer.h</itemPath>
       <itemPath>Protocol.h</itemPath>
       <itemPath>MessageIDs.h</itemPath>
+      <itemPath>RotaryEncoder.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -18,8 +19,9 @@
                    projectFiles="true">
       <itemPath>BOARD.c</itemPath>
       <itemPath>FreeRunningTimer.c</itemPath>
-      <itemPath>Application.c</itemPath>
       <itemPath>protocol.c</itemPath>
+      <itemPath>RotaryEncoder.c</itemPath>
+      <itemPath>Application.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -38,7 +40,7 @@
         <targetDevice>PIC32MX320F128H</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>PICkit3PlatformTool</platformTool>
+        <platformTool>Simulator</platformTool>
         <languageToolchain>XC32</languageToolchain>
         <languageToolchainVersion>3.01</languageToolchainVersion>
         <platform>3</platform>
@@ -73,6 +75,8 @@
         <makeCustomizationEnableLongLines>false</makeCustomizationEnableLongLines>
         <makeCustomizationNormalizeHexFile>false</makeCustomizationNormalizeHexFile>
       </makeCustomizationType>
+      <item path="Application.c" ex="true" overriding="false">
+      </item>
       <C32>
         <property key="additional-warnings" value="false"/>
         <property key="addresss-attribute-use" value="false"/>

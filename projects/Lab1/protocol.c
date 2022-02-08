@@ -176,7 +176,12 @@ int Protocol_GetPayload(void* payload) {
  * @return TRUE if Queue is not Empty
  * @brief 
  * @author mdunne */
-char Protocol_IsMessageAvailable(void);
+char Protocol_IsMessageAvailable(void) {
+    if (RX_State_Machine.length > 0) {
+        return 1;
+    }
+    return 0;
+}
 
 /**
  * @Function char Protocol_IsQueueFull(void)
@@ -184,7 +189,12 @@ char Protocol_IsMessageAvailable(void);
  * @return TRUE is QUEUE is Full
  * @brief 
  * @author mdunne */
-char Protocol_IsQueueFull(void);
+char Protocol_IsQueueFull(void) {
+    if (RX_State_Machine.length >= MAXPAYLOADLENGTH) {
+        return 1;
+    }
+    return 0;
+}
 
 /**
  * @Function char Protocol_IsError(void)

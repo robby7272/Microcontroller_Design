@@ -1,5 +1,4 @@
 
-
 #include "RotaryEncoder.h"
 #include "BOARD.h"
 /*******************************************************************************
@@ -20,30 +19,21 @@
  * @brief initializes hardware in appropriate mode along with the needed interrupts */
 int RotaryEncoder_Init(char interfaceMode) {
     int rData;
-    IEC0CLR=0x03800000;  // disable all interrupts
+
     SPI2CON = 0;        // Stops and resets the SPI1. 
     rData=SPI2BUF;        // clear receive buffer
-    SPI2CONbits.ENHBUF = 0;
-    // clear any existing event
-            // clear the priority
-            // Set IPL=3, Subpriority 1
-    IEC0SET=0x03800000; // Enable RX, TX and Error interrupts
-            // use FPB/4 clock frequency
-            // clear the Overflow
+    
     SPI2BRG = 0x11; // 40MHz/(2*3+1) = 5MHz
+    SPI2STATbits.SPIROV = 0; // clear SPIROV bit
+    SPI2CONbits.MSTEN = 1; // Master mode    
     SPI2CONbits.MODE16 = 1; // 16 bit mode
+    SPI2CONbits.CKE = 1; // data sampled on falling edge
+    SPI2CONbits.CKP = 0; // clock idle low
     SPI2CONbits.ON = 1;     // SPI ON
-                                //8 bits transfer, SMP=1, Master mode
 
-
-            // from now on, the device is ready to transmit and receive data
-            // transmit an A character
+    // slave I/O pin??
+    // SPI2BUF = 'A'
     
-    
-//1. Clock Speed 5MHz
-//2. SPI Mode 1 (Clock idle low, Data sampled on falling edge)
-//3. 16 bit mode
-//4. PIC32 is Master
 }
 
 /**

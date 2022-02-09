@@ -10,7 +10,7 @@
 #include <sys/attribs.h>
 #include "Protocol.h"
 #include <stdio.h>
-
+#define CS LATDbits.LATD3
 unsigned int milliSecond = 0;
 unsigned int microSecond = 0;
 
@@ -33,6 +33,9 @@ void FreeRunningTimer_Init(void) {
     IEC0SET = 0x00100000; // Enable Timer5 interrupt
     
     T5CONbits.ON = 1; // Start timer
+    
+    TRISDbits.TRISD3 = 0;
+    CS = 1;
 }
 
 /**
@@ -61,9 +64,9 @@ void __ISR(_TIMER_5_VECTOR, ipl3auto) Timer5IntHandler(void) {
     TMR5 = 0x0;
 }
 
-int main() {
+//int main() {
     
-}
+//}
 
 
 //#define testHarness
@@ -80,11 +83,14 @@ int main() {
     sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
     Protocol_SendDebugMessage(debugMessage);
     while(1) {
-        if (FreeRunningTimer_GetMilliSeconds()%2000 == 0) {
+        if (FreeRunningTimer_GetMilliSeconds()%200 == 0) {
             sprintf(timerMessage, "Milliseconds %u Microseconds %u", milliSecond, microSecond);
             Protocol_SendDebugMessage(timerMessage);
             LEDS_SET(leds);
             leds = leds ^ 0x01; // flash led
+
+            PORTDbits.RD4;
+            CS = CS ^ 0x01;
         }
     }
 }

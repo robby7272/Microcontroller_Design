@@ -8,6 +8,7 @@
 #define ENCODER_BLOCKING_MODE 0
 #define ENCODER_INTERRUPT_MODE 1
 
+#define CS LATDbits.LATD3
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
  ******************************************************************************/
@@ -30,8 +31,10 @@ int RotaryEncoder_Init(char interfaceMode) {
     SPI2CONbits.CKE = 1; // data sampled on falling edge
     SPI2CONbits.CKP = 0; // clock idle low
     SPI2CONbits.ON = 1;     // SPI ON
+    
+    TRISDbits.TRISD3 = 0; // output mode for slave pin
+    CS = 1; // slave I/O pin
 
-    // slave I/O pin??
     // SPI2BUF = 'A'
     
 }
@@ -55,6 +58,30 @@ unsigned int parityCheck(unsigned int in) {
     p = p%2;
     return p;
 }
+
+#define sendMessage
+#ifdef sendMessage
+int main() {
+
+
+    RotaryEncoder_Init(ENCODER_BLOCKING_MODE);
+    unsigned int p;
+    unsigned int packet = 0xF0;
+    p = parityCheck(packet); // compute parity
+    packet = packet | (p << 15); // insert parity bit
+    CS = 0; // set slave select low
+    SPI2BUF = packet; // copy packet into appropriate buffer
+    
+    
+    while(1) {
+        if (SPI2STATbits.SPITBE == 1) {
+            CS = 1;
+            //SPI2BUF = packet;
+            //CS = 0;
+        }
+    }
+}
+#endif
 
 //#define parityCheck
 #ifdef parityCheck

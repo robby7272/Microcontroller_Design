@@ -59,7 +59,7 @@ unsigned int parityCheck(unsigned int in) {
     return p;
 }
 
-#define sendMessage
+//#define sendMessage
 #ifdef sendMessage
 int main() {
 

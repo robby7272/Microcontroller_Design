@@ -61,7 +61,6 @@ void __ISR(_TIMER_5_VECTOR, ipl3auto) Timer5IntHandler(void) {
     IFS0CLR = 0x00100000; // clear Timer5 interrupt flag
     milliSecond += 1;
     microSecond += 1000;
-    TMR5 = 0x0;
 }
 
 //int main() {

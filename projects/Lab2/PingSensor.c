@@ -36,8 +36,26 @@ int PingSensor_Init(void) { // initialize Timer4 for 60 ms
     
     T4CONbits.ON = 1; // Start timer
     
-    TRISDbits.TRISD3 = 0;
+    TRISDbits.TRISD3 = 0; // output
     TRIGGERPIN = 0;
+    
+    T2CON = 0x0; // clear control registers
+    TMR2 = 0x0; // clear time register
+    PR2 = 0xFFFF; // max load period > 11.68 ms
+    T2CONbits.TCKPS = 0b011; // preset 8
+    IPC2SET = 0x0000000C; // priority 3
+    IPC2SET = 0x00000001; // sub priority 1    
+    IFS0CLR = 0x00000100; // clear Timer2 interrupt flag
+    IEC0SET = 0x00000100; // Enable Timer2 interrupt
+    
+    IC3CON = 0; // clear control registers
+    IC3CONbits.ICM = 0b001; // trigger on every edge
+    IC3CONbits.FEDGE = 1; // first trigger rising edge
+    IC3CONbits.ICI = 0b00; // interrupt on every edge
+    // IC3 interrupt priority
+    IC3CONbits.ON = 1;// turn IC3 on
+    
+    T2CONbits.ON = 1; // Start timer
 }
 
 /**

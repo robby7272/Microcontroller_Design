@@ -103,7 +103,7 @@ void __ISR(_TIMER_2_VECTOR) Timer2IntHandler(void) {
 
 }
 
-#define test
+//#define test
 #ifdef test
 int main() {
     BOARD_Init();

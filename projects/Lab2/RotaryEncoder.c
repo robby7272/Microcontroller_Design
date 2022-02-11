@@ -4,6 +4,7 @@
 #include "FreeRunningTimer.h"
 #include "Protocol.h"
 #include <sys/attribs.h>
+#include <stdio.h>
 /*******************************************************************************
  * PUBLIC #DEFINES                                                            *
  ******************************************************************************/
@@ -12,6 +13,7 @@
 #define ENCODER_INTERRUPT_MODE 1
 
 #define CS LATDbits.LATD4 // pin 10
+unsigned short rData;
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
  ******************************************************************************/
@@ -46,7 +48,9 @@ int RotaryEncoder_Init(char interfaceMode) {
  * @Function int RotaryEncoder_ReadRawAngle(void)
  * @param None
  * @return 14-bit number representing the raw encoder angle (0-16384) */
-unsigned short RotaryEncoder_ReadRawAngle(void);
+unsigned short RotaryEncoder_ReadRawAngle(void) {
+    return rData & 0b0011111111111111;
+}
 
 
 
@@ -62,12 +66,23 @@ unsigned int parityCheck(unsigned int in) {
     return p;
 }
 
+void delay(void) {
+    
+    unsigned int time = 0;
+    unsigned int time2 = 0;
+    time = FreeRunningTimer_GetMilliSeconds();
+    while(1) {
+        time2 = FreeRunningTimer_GetMilliSeconds();
+        if (time+10 < time2) {
+            break;
+        }
+    }
+    
+}
+
 #define sendToEncoder
 #ifdef sendToEncoder
 int main() {
-    unsigned int time = 0;
-    unsigned int time2 = 0;
-    unsigned short rData;
     unsigned short dData;
     BOARD_Init();
     Protocol_Init();
@@ -76,35 +91,19 @@ int main() {
     unsigned short NOP = 0xC000;
     unsigned short packet = 0x7FFE;
     
-
-
+    
     while(1) {
-        CS = 0; // set slave select low   
-        SPI2BUF = packet; // copy packet into appropriate buffer
-        while(SPI2STATbits.SPITBE == 0); // packet transfer in progress
-        CS = 1;
-        dData=SPI2BUF; // discard data
-        time = FreeRunningTimer_GetMilliSeconds();
-        while(1) {
-            time2 = FreeRunningTimer_GetMilliSeconds();
-            if (time+100 < time2) {
-                break;
-            }
-        }
-        // wait 350 nS
+        delay();
         CS = 0;
-        SPI2BUF = NOP; // copy packet into appropriate buffer
-        while(SPI2STATbits.SPITBE == 0); // packet transfer in progress
+        SPI2BUF = packet; // copy packet into appropriate buffer
+        while(SPI2STATbits.SPIBUSY == 1); // packet transfer in progress
         CS = 1;
-        time = FreeRunningTimer_GetMilliSeconds();
-        while(1) {
-            time2 = FreeRunningTimer_GetMilliSeconds();
-            if (time+100 < time2) {
-                break;
-            }
-        }
         rData=SPI2BUF; // read data
-        int x = 5;
+        rData = RotaryEncoder_ReadRawAngle();
+        char timerMessage[MAXPAYLOADLENGTH];
+        sprintf(timerMessage, "%u", rData);
+        Protocol_SendDebugMessage(timerMessage);
+        
     }
 }
 #endif

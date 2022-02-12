@@ -16,6 +16,7 @@ unsigned int t = 0;
 unsigned short upgoing = 0;
 unsigned short downgoing = 0;
 unsigned short difference = 0;
+unsigned int i;
 
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
@@ -77,11 +78,8 @@ unsigned short PingSensor_GetDistance(void);
 void __ISR(_TIMER_4_VECTOR) Timer4IntHandler(void) {
     IFS0CLR = 0x00010000; // clear Timer4 interrupt flag
     TRIGGERPIN = 1;
-    t = FreeRunningTimer_GetMicroSeconds();
-    while(1) { // 10 microseconds
-        if (FreeRunningTimer_GetMicroSeconds() > (t+10)) {
-            break;
-        }
+    for (i = 0; i < 12; i++) { // 10 microseconds
+        asm("nop");
     }
     TRIGGERPIN = 0;
 }
@@ -103,7 +101,8 @@ void __ISR(_TIMER_2_VECTOR) Timer2IntHandler(void) {
 
 }
 
-//#define test
+
+#define test
 #ifdef test
 int main() {
     BOARD_Init();

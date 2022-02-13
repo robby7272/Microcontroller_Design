@@ -10,13 +10,16 @@
  * PUBLIC #DEFINES                                                            *
  ******************************************************************************/
 #define TRIGGERPIN LATDbits.LATD0 // pin 3
-#define INPUTCAPTURE LATDbits.LATD10 // pin 8
+#define ECHO LATDbits.LATD10 // pin 8 IC3
+#define TEST LATEbits.LATE0 // pin 26 
 
 unsigned int t = 0;
 unsigned short upgoing = 0;
 unsigned short downgoing = 0;
 unsigned short difference = 0;
+unsigned short garbage;
 unsigned int i;
+unsigned int counter;
 
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
@@ -39,7 +42,9 @@ int PingSensor_Init(void) { // initialize Timer4 for 60 ms
     T4CONbits.ON = 1; // Start timer
     
     TRISDbits.TRISD0 = 0; // output
-    TRISDbits.TRISD10 = 1; // input
+    TRISDbits.TRISD10 = 1; // input (1)
+    TRISEbits.TRISE0 = 0;
+    TEST = 0;
     TRIGGERPIN = 0;
     
     
@@ -86,19 +91,23 @@ void __ISR(_TIMER_4_VECTOR) Timer4IntHandler(void) {
 
 void __ISR(_INPUT_CAPTURE_3_VECTOR) __IC3Interrupt(void){
     IFS0bits.IC3IF = 0; // clear interrupt flag
-    if (TRIGGERPIN == 1) {
-        upgoing = (0xFFFF & IC3BUF);
-    } else if(TRIGGERPIN == 0) {
-        downgoing = (0xFFFF & IC3BUF);
-        difference = downgoing - upgoing;
+    if (counter%2 == 0) {
+        if (TEST == 1) {
+            upgoing = (0xFFFF & IC3BUF);
+        }
+        counter += 1;
+    } else if(counter%2 == 1) {
+        if (TEST == 0) {
+            downgoing = (0xFFFF & IC3BUF);
+            difference = downgoing - upgoing;
+        }
+        counter += 1;
     }
-
-    int x = 5;
+    garbage = IC3BUF;
 }
 
 void __ISR(_TIMER_2_VECTOR) Timer2IntHandler(void) {
     IFS0CLR = 0x00000100; // clear Timer2 interrupt flag
-
 }
 
 
@@ -109,6 +118,16 @@ int main() {
     FreeRunningTimer_Init();
     Protocol_Init();
     PingSensor_Init();
-    while(1);
+
+    while(1) {
+        TEST = 1;
+        for (i = 0; i < 1200; i++) { // 10 microseconds
+            asm("nop");
+        }
+        TEST = 0;
+        for (i = 0; i < 1200; i++) { // 10 microseconds
+            asm("nop");
+        }
+    }
 }
 #endif

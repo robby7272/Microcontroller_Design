@@ -11,13 +11,14 @@
  ******************************************************************************/
 #define TRIGGERPIN LATDbits.LATD0 // pin 3
 #define ECHO LATDbits.LATD10 // pin 8 IC3
-#define TEST LATEbits.LATE0 // pin 26 
+//#define TEST LATEbits.LATE0 // pin 26 
 
 unsigned int t = 0;
 unsigned short upgoing = 0;
 unsigned short downgoing = 0;
 unsigned short difference = 0;
 unsigned short garbage;
+unsigned short distance = 0;
 unsigned int i;
 unsigned int counter;
 
@@ -42,9 +43,9 @@ int PingSensor_Init(void) { // initialize Timer4 for 60 ms
     T4CONbits.ON = 1; // Start timer
     
     TRISDbits.TRISD0 = 0; // output
-    TRISDbits.TRISD10 = 1; // input (1)
-    TRISEbits.TRISE0 = 0;
-    TEST = 0;
+    TRISDbits.TRISD10 = 1; // input
+    //TRISEbits.TRISE0 = 0;
+    //TEST = 0;
     TRIGGERPIN = 0;
     
     
@@ -60,7 +61,7 @@ int PingSensor_Init(void) { // initialize Timer4 for 60 ms
     
     // IC3 is pin 8
     IC3CON = 0; // clear control registers
-    IC3CONbits.ICM = 0b001; // trigger on every edge
+    IC3CONbits.ICM = 0b110; // trigger on every edge
     IC3CONbits.FEDGE = 1; // first trigger rising edge
     IC3CONbits.ICI = 0b00; // interrupt on every edge
     IC3CONbits.ICTMR = 1; // Timer2 selected
@@ -77,8 +78,15 @@ int PingSensor_Init(void) { // initialize Timer4 for 60 ms
  * @Function int PingSensor_GetDistance(void)
  * @param None
  * @return Unsigned Short corresponding to distance in millimeters */
-unsigned short PingSensor_GetDistance(void);
+unsigned short PingSensor_GetDistance(void) {
+    return difference/58; // centimeter formula from datasheet
+}
 
+void delay10us() {
+    for (i = 0; i < 12; i++) { // 10 microseconds
+            asm("nop");
+        }
+}
 
 void __ISR(_TIMER_4_VECTOR) Timer4IntHandler(void) {
     IFS0CLR = 0x00010000; // clear Timer4 interrupt flag
@@ -92,15 +100,16 @@ void __ISR(_TIMER_4_VECTOR) Timer4IntHandler(void) {
 void __ISR(_INPUT_CAPTURE_3_VECTOR) __IC3Interrupt(void){
     IFS0bits.IC3IF = 0; // clear interrupt flag
     if (counter%2 == 0) {
-        if (TEST == 1) {
-            upgoing = (0xFFFF & IC3BUF);
-        }
+        upgoing = (0xFFFF & IC3BUF);
         counter += 1;
     } else if(counter%2 == 1) {
-        if (TEST == 0) {
-            downgoing = (0xFFFF & IC3BUF);
-            difference = downgoing - upgoing;
-        }
+        downgoing = (0xFFFF & IC3BUF);
+        difference = downgoing - upgoing;
+        if (difference > 34800) { // error value
+            difference = 0;
+            counter -= 1;
+        }    
+        
         counter += 1;
     }
     garbage = IC3BUF;
@@ -118,16 +127,24 @@ int main() {
     FreeRunningTimer_Init();
     Protocol_Init();
     PingSensor_Init();
-
+    
+    unsigned int time1;
+    unsigned int time2;
+    
+    char debugMessage[MAXPAYLOADLENGTH];
+    sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
+    Protocol_SendDebugMessage(debugMessage);
+    
     while(1) {
-        TEST = 1;
-        for (i = 0; i < 1200; i++) { // 10 microseconds
-            asm("nop");
+        time1 = FreeRunningTimer_GetMilliSeconds();
+        while(1) {
+            time2 = FreeRunningTimer_GetMilliSeconds();
+            if (time1+100 < time2) {
+                break;
+            }
         }
-        TEST = 0;
-        for (i = 0; i < 1200; i++) { // 10 microseconds
-            asm("nop");
-        }
+        distance = PingSensor_GetDistance();
+        Protocol_SendMessage(1, 0x87, &distance);
     }
 }
 #endif

@@ -167,11 +167,11 @@ unsigned char Protocol_ReadNextID(void) {
  * @brief 
  * @author mdunne */
 int Protocol_GetPayload(void* payload) {
-    if (RX_State_Machine.length > 0) {
-        payload = &RX_State_Machine.data[1];
-        return 1;
+    unsigned char i;
+    for (i = 0; i < RX_State_Machine.length; i++) {
+        ((unsigned char*) payload)[i] = RX_State_Machine.data[i+1];
     }
-    return 0;
+    return 1;
 }
 
 /**
@@ -249,6 +249,7 @@ unsigned char Protocol_CalcIterativeChecksum(unsigned char charIn, unsigned char
 void Protocol_RunReceiveStateMachine(unsigned char charIn) {
     if (state == START) {
         if (charIn == 0xCC) {
+            RX_State_Machine.length = 0; // reset buffer
             state = LENGTH;
         }
     }
@@ -303,7 +304,7 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
             unsigned char ledsget = LATE & 0xFF;
             Protocol_SendMessage(1, ID_LEDS_STATE, &ledsget);
 
-        }
+        } 
         else if (checkSum == charIn) { // correct checksum
             checkSum = 0;
             state = START;
@@ -312,7 +313,6 @@ void Protocol_RunReceiveStateMachine(unsigned char charIn) {
         } else { // checksum is incorrect
             checkSum = 0;
             state = START;
-            RX_State_Machine.length = 0; // reset buffer
             count = 0;
         }
     }

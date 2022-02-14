@@ -45,8 +45,7 @@ int RCServo_Init(void) {
     OC3CON = 0x0; // clear control registers
     OC3CONbits.OCTSEL = 1; // select Timer3
     OC3CONbits.OCM = 0b110; // PWM, no fault pin
-    OC3RS = RC_SERVO_CENTER_PULSE; // duty cycle, controlled by user
-    OC3R = 900; // initial value before RS is copied in
+    OC3R = RC_SERVO_CENTER_PULSE; // initial value before RS is copied in
     
     OC3CONbits.ON = 1; // turn output capture on
             
@@ -63,8 +62,8 @@ int RCServo_Init(void) {
 int RCServo_SetPulse(unsigned int inPulse) {
     unsigned int outPulse = 0;
     microsPulse = inPulse;
-    outPulse = inPulse / 8;
-    outPulse = outPulse * 5; // multiplies by 0.625 to convert to ticks
+    outPulse = inPulse / 0x8;
+    outPulse = outPulse * 0x5; // multiplies by 0.625 to convert to ticks
     if (outPulse > RC_SERVO_MAX_PULSE) {
         outPulse = RC_SERVO_MAX_PULSE;
     }
@@ -94,8 +93,23 @@ unsigned int RCServo_GetRawTicks(void) {
 
 void __ISR(_TIMER_3_VECTOR) Timer3IntHandler(void) {
     IFS0CLR = 0x00001000; // clear Timer3 interrupt flag
+    OC3RS = tickPulse; // duty cycle, controlled by user
+
 }
 
+unsigned int convertToInt(void* payload) {
+    unsigned char *load = (unsigned char*)payload;
+    unsigned int count = 0;
+    *load++;
+    *load++;
+    count += (*load++) * 0x100;
+    count += *load++;
+    return count;
+}
+
+unsigned int adjustTickPulse(unsigned int pulse) {
+    return (pulse-600)/3 + 600;
+}
 
 #define timer
 #ifdef timer
@@ -106,12 +120,14 @@ int main() {
     RCServo_Init();
     
     unsigned short Data = 0;
-    unsigned short prevData = 0;
     unsigned int num = 0;
+    unsigned int invnum = 0;
     while(1) {
         Protocol_GetPayload(&Data);
-        Protocol_SendMessage(4, 0x89, &Data);
-
+        num = convertToInt(&Data);
+        tickPulse = adjustTickPulse(num);
+        //Protocol_SendMessage(2, 0x89, &tickPulse);
+        int x = 5;
     }
 }
 #endif

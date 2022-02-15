@@ -5,6 +5,7 @@
 #include "Protocol.h"
 #include <sys/attribs.h>
 #include <stdio.h>
+#include <proc/p32mx320f128h.h>
 /*******************************************************************************
  * PUBLIC #DEFINES                                                            *
  ******************************************************************************/
@@ -40,7 +41,7 @@ int RotaryEncoder_Init(char interfaceMode) {
     
     TRISFbits.TRISF1 = 0; // output mode for CS
     CS = 1; // slave I/O pin
-
+    return 1;
     // SPI2BUF = 'A'
     
 }

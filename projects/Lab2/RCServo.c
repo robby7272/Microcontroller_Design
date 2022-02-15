@@ -121,12 +121,23 @@ int main() {
     
     unsigned short Data = 0;
     unsigned int num = 0;
-    unsigned int invnum = 0;
+    unsigned int currnum = 0;
+    unsigned int endianTick;
     while(1) {
         Protocol_GetPayload(&Data);
         num = convertToInt(&Data);
         tickPulse = adjustTickPulse(num);
-        //Protocol_SendMessage(2, 0x89, &tickPulse);
+        if (tickPulse > RC_SERVO_MAX_PULSE) {
+            tickPulse = RC_SERVO_MAX_PULSE;
+        }
+        if (tickPulse < RC_SERVO_MIN_PULSE) {
+            tickPulse = RC_SERVO_MIN_PULSE;
+        }
+        if (currnum != num) { // if survo angle changed
+            currnum = convertToInt(&Data);
+            endianTick = ((tickPulse * 0x100) & 0x0000FF00) | ((tickPulse / 0x100) & 0x000000FF); // changes endianess
+            Protocol_SendMessage(2, 0x89, &endianTick);
+        }
         int x = 5;
     }
 }

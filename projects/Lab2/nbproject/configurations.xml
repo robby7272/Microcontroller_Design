@@ -10,6 +10,7 @@
       <itemPath>MessageIDs.h</itemPath>
       <itemPath>RotaryEncoder.h</itemPath>
       <itemPath>PingSensor.h</itemPath>
+      <itemPath>RCServo.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -24,6 +25,7 @@
       <itemPath>RotaryEncoder.c</itemPath>
       <itemPath>Application.c</itemPath>
       <itemPath>PingSensor.c</itemPath>
+      <itemPath>RCServo.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

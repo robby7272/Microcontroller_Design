@@ -7,9 +7,9 @@
  * PUBLIC #DEFINES                                                            *
  ******************************************************************************/
 
-#define RC_SERVO_MIN_PULSE 600
-#define RC_SERVO_CENTER_PULSE 1500
-#define RC_SERVO_MAX_PULSE 2400
+#define RC_SERVO_MIN_PULSE 625
+#define RC_SERVO_CENTER_PULSE 938
+#define RC_SERVO_MAX_PULSE 1250
 
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *

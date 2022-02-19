@@ -144,6 +144,7 @@ int main() {
             }
         }
         distance = PingSensor_GetDistance();
+        distance = Protocol_ShortEndednessConversion(distance);
         Protocol_SendMessage(2, 0x87, &distance);
     }
 }

@@ -1,6 +1,14 @@
 
-#include "BOARD.h"
 #include "FreeRunningTimer.h"
+#include "MessageIDs.h"
+#include <stdio.h>
+#include <string.h>
+#include "Protocol.h"
+#include "BOARD.h"
+#include <sys/attribs.h>
+#include "PingSensor.h"
+#include "RCServo.h"
+#include "RotaryEncoder.h"
 
 #define LEDS_INIT() do {LATECLR = 0xFF; TRISECLR = 0xFF;} while (0)
 
@@ -21,8 +29,16 @@
 #ifdef application
 int main() {
     BOARD_Init();
-    LEDS_INIT();
     FreeRunningTimer_Init();
+    Protocol_Init();
+    PingSensor_Init();
+    RotaryEncoder_Init(0);
+    
+    char debugMessage[MAXPAYLOADLENGTH];
+    sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
+    Protocol_SendDebugMessage(debugMessage);
+    
+    
     
     while(1);
 }

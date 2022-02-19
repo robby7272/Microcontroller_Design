@@ -120,7 +120,7 @@ void __ISR(_TIMER_2_VECTOR) Timer2IntHandler(void) {
 }
 
 
-//#define test
+#define test
 #ifdef test
 int main() {
     BOARD_Init();
@@ -144,7 +144,7 @@ int main() {
             }
         }
         distance = PingSensor_GetDistance();
-        Protocol_SendMessage(1, 0x87, &distance);
+        Protocol_SendMessage(2, 0x87, &distance);
     }
 }
 #endif

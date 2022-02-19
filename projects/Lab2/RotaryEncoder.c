@@ -15,6 +15,7 @@
 
 #define CS LATFbits.LATF1 // pin 4
 unsigned short rData;
+unsigned short dData;
 unsigned short error;
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
@@ -46,13 +47,35 @@ int RotaryEncoder_Init(char interfaceMode) {
     
 }
 
+void delay1uS(void) {
+    unsigned int i;
+    for (i = 0; i < 1; i++) { // 1 us
+        asm("nop");
+    }
+}
+
 /**
  * @Function int RotaryEncoder_ReadRawAngle(void)
  * @param None
  * @return 14-bit number representing the raw encoder angle (0-16384) */
 unsigned short RotaryEncoder_ReadRawAngle(void) {
-    //return (rData & 0b0100000000000000) >> 14;
-    return rData & 0b0011111111111111;
+    CS = 0;
+    delay1uS(); // wait 1us
+    SPI2BUF = 0xFFFE; // copy packet into appropriate buffer
+    while(!SPI2STATbits.SPIRBF); // packet transfer in progress
+    CS = 1;
+    delay1uS(); // wait 1us
+    rData = SPI2BUF; // read data       
+    CS = 0;
+    delay1uS(); // wait 1us
+    SPI2BUF = 0x0000;
+    while(!SPI2STATbits.SPIRBF); // packet transfer in progress
+    CS = 1;
+    delay1uS(); // wait 1us
+    dData = SPI2BUF;
+
+
+    return dData & 0b0011111111111111;
 }
 
 
@@ -69,13 +92,6 @@ unsigned int parityCheck(unsigned int in) {
     return p;
 }
 
-void delay1mS(void) {
-    unsigned int i;
-    for (i = 0; i < 5; i++) {
-        asm("nop");
-    }
-}
-
 //#define sendToEncoder
 #ifdef sendToEncoder
 int main() {
@@ -83,25 +99,26 @@ int main() {
     Protocol_Init();
     FreeRunningTimer_Init();
     RotaryEncoder_Init(ENCODER_BLOCKING_MODE);
-    unsigned short NOP = 0xC000;
-    unsigned short packet = 0x7FFE; // measured angle
-    
-    
+    unsigned short NOP = 0x0000;
+    unsigned short packet = 0xFFFE; // measured angle
+    char timerMessage[MAXPAYLOADLENGTH];
+
     while(1) {
-        delay1mS();
         CS = 0;
-        SPI2BUF = packet; // copy packet into appropriate buffer
+        delay1uS(); // wait 1us
+        SPI2BUF = 0xFFFE; // copy packet into appropriate buffer
         while(!SPI2STATbits.SPIRBF); // packet transfer in progress
         CS = 1;
-        rData=SPI2BUF; // read data       
-        
-        rData = rData & 0b0011111111111111;
-        error = (rData & 0b0100000000000000) >> 14;
-        char timerMessage[MAXPAYLOADLENGTH];
-        sprintf(timerMessage, "Angle: %u Error: %u", rData, error);
-        Protocol_SendDebugMessage(timerMessage);
-        //Protocol_SendMessage(4, 0x86, &rData);
-        
+        delay1uS(); // wait 1us
+        rData = SPI2BUF; // read data       
+        CS = 0;
+        delay1uS(); // wait 1us
+        SPI2BUF = 0x0000;
+        while(!SPI2STATbits.SPIRBF); // packet transfer in progress
+        CS = 1;
+        delay1uS(); // wait 1us
+        dData = SPI2BUF;
+        //Protocol_SendMessage(4, 0x86, &dData);
     }
 }
 #endif

@@ -109,7 +109,8 @@ int Protocol_SendMessage(unsigned char len, unsigned char ID, void *Payload) {
     PutChar(len+1);
     char curChecksum = ID;
     PutChar(ID);
-    for (int i = 0; i<len; i++) {
+    int i = 0;
+    for (i = 0; i<len; i++) {
         curChecksum = Protocol_CalcIterativeChecksum(*load, curChecksum);
         PutChar(*load++);
     }
@@ -135,7 +136,8 @@ int Protocol_SendDebugMessage(char *Message) {
     PutChar(len+1);
     PutChar(ID_DEBUG);
     char curChecksum = ID_DEBUG;
-    for (int i = 0; i<len; i++) {
+    int i = 0;
+    for (i = 0; i<len; i++) {
         curChecksum = Protocol_CalcIterativeChecksum(*load, curChecksum);
         PutChar(*load++);
     }

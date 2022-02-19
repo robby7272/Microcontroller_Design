@@ -111,7 +111,7 @@ unsigned int adjustTickPulse(unsigned int pulse) {
     return (pulse-600)/3 + 600;
 }
 
-#define timer
+//#define timer
 #ifdef timer
 int main() {
     BOARD_Init();

@@ -5,7 +5,7 @@
 #include "Protocol.h"
 #include <sys/attribs.h>
 #include <stdio.h>
-#include <proc/p32mx320f128h.h>
+
 /*******************************************************************************
  * PUBLIC #DEFINES                                                            *
  ******************************************************************************/
@@ -82,7 +82,8 @@ unsigned short RotaryEncoder_ReadRawAngle(void) {
 
 unsigned int parityCheck(unsigned int in) {
     unsigned int p = 0;
-    for (unsigned int i = 1; i < 0x8000;) {
+    unsigned int i = 1;
+    for (i = 1; i < 0x8000;) {
         if (in & i) {
             p += 1;
         }

@@ -10,6 +10,7 @@
 #include "RCServo.h"
 #include "RotaryEncoder.h"
 
+
 #define LEDS_INIT() do {LATECLR = 0xFF; TRISECLR = 0xFF;} while (0)
 
 /**
@@ -25,7 +26,7 @@
  */
 #define LEDS_SET(leds) do { LATE = (leds); } while (0)
 
-//#define application
+#define application
 #ifdef application
 int main() {
     BOARD_Init();
@@ -33,13 +34,64 @@ int main() {
     Protocol_Init();
     PingSensor_Init();
     RotaryEncoder_Init(0);
+    RCServo_Init();
+    
+    unsigned int RCPingPulse = RC_SERVO_CENTER_PULSE;
+    unsigned int RCEncoderPulse = RC_SERVO_CENTER_PULSE;
+    unsigned short encoderData;
+    unsigned short pingData;
+    unsigned short ENCODER = 0;
+    unsigned short PING = 0;
     
     char debugMessage[MAXPAYLOADLENGTH];
     sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
     Protocol_SendDebugMessage(debugMessage);
     
+    unsigned int time1;
+    unsigned int time2;
     
-    
-    while(1);
+    while(1) {
+        time1 = FreeRunningTimer_GetMilliSeconds();
+        while(1) {
+            time2 = FreeRunningTimer_GetMilliSeconds();
+            if (time1+100 < time2) {
+                break;
+            }
+        }
+        if (PORTFbits.RF1 == 1) {
+            ENCODER = 1;
+            PING = 0;
+        }
+        if (PORTDbits.RD5 == 1) {
+            ENCODER = 0;
+            PING = 1;
+        }
+        if (ENCODER == 1) {
+            encoderData = RotaryEncoder_ReadRawAngle(); // maybe need to change endian here? 
+            //Protocol_SendMessage(2, 0x86, &encoderData);
+            RCEncoderPulse = encoderData/13;
+            if (RCEncoderPulse > RC_SERVO_MAX_PULSE) {
+                RCEncoderPulse = RC_SERVO_MAX_PULSE;
+            }
+            if (RCEncoderPulse < RC_SERVO_MIN_PULSE) {
+                RCEncoderPulse = RC_SERVO_MIN_PULSE;
+            }
+            RCServo_SetPulseWithCorrectTicks(RCEncoderPulse);
+        }
+        if (PING == 1) {
+            pingData = PingSensor_GetDistance();
+            RCPingPulse = pingData*3 + 600;
+            if (RCPingPulse > RC_SERVO_MAX_PULSE) {
+                RCPingPulse = RC_SERVO_MAX_PULSE;
+            }
+            if (RCPingPulse < RC_SERVO_MIN_PULSE) {
+                RCPingPulse = RC_SERVO_MIN_PULSE;
+            }
+            RCServo_SetPulseWithCorrectTicks(RCPingPulse);
+            //pingData = Protocol_ShortEndednessConversion(pingData);
+            //Protocol_SendMessage(2, 0x87, &pingData);
+        }
+    }
+         
 }
 #endif

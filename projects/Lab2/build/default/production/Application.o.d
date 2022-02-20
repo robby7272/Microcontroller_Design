@@ -1,6 +1,16 @@
-build/default/production/Application.o: Application.c BOARD.h \
- FreeRunningTimer.h
+build/default/production/Application.o: Application.c FreeRunningTimer.h \
+ MessageIDs.h Protocol.h BOARD.h PingSensor.h RCServo.h RotaryEncoder.h
+
+FreeRunningTimer.h:
+
+MessageIDs.h:
+
+Protocol.h:
 
 BOARD.h:
 
-FreeRunningTimer.h:
+PingSensor.h:
+
+RCServo.h:
+
+RotaryEncoder.h:

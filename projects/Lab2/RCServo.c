@@ -70,6 +70,10 @@ int RCServo_SetPulse(unsigned int inPulse) {
     
 }
 
+int RCServo_SetPulseWithCorrectTicks(unsigned int inPulse) {
+    tickPulse = inPulse;
+}
+
 /**
  * @Function int RCServo_GetPulse(void)
  * @param None
@@ -134,7 +138,6 @@ int main() {
             endianTick = ((tickPulse * 0x100) & 0x0000FF00) | ((tickPulse / 0x100) & 0x000000FF); // changes endianess
             Protocol_SendMessage(4, 0x89, &endianTick);
         }
-        int x = 5;
     }
 }
 #endif

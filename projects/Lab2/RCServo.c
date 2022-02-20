@@ -19,7 +19,6 @@
 /*******************************************************************************
  * PUBLIC FUNCTIONS                                                           *
  ******************************************************************************/
-#define TRIGGER LATFbits.LATF1 // pin 4
 #define OUTPUTCAPTURE LATDbits.LATD2 // pin 6
 unsigned int j;
 unsigned int tickPulse = RC_SERVO_CENTER_PULSE;
@@ -48,9 +47,6 @@ int RCServo_Init(void) {
     OC3R = RC_SERVO_CENTER_PULSE; // initial value before RS is copied in
     
     OC3CONbits.ON = 1; // turn output capture on
-            
-    TRISFbits.TRISF1 = 0; // output
-    TRIGGER = 0;
 }
 
 /**

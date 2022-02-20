@@ -61,7 +61,7 @@ void delay1uS(void) {
 unsigned short RotaryEncoder_ReadRawAngle(void) {
     CS = 0;
     delay1uS(); // wait 1us
-    SPI2BUF = 0xFFFE; // copy packet into appropriate buffer
+    SPI2BUF = 0xFFFF; // copy packet into appropriate buffer
     while(!SPI2STATbits.SPIRBF); // packet transfer in progress
     CS = 1;
     delay1uS(); // wait 1us
@@ -72,10 +72,9 @@ unsigned short RotaryEncoder_ReadRawAngle(void) {
     while(!SPI2STATbits.SPIRBF); // packet transfer in progress
     CS = 1;
     delay1uS(); // wait 1us
-    dData = SPI2BUF;
-
-
-    return dData & 0b0011111111111111;
+    dData = SPI2BUF & 0b0011111111111111;
+    dData = Protocol_ShortEndednessConversion(dData);
+    return dData;
 }
 
 
@@ -105,21 +104,8 @@ int main() {
     char timerMessage[MAXPAYLOADLENGTH];
 
     while(1) {
-        CS = 0;
-        delay1uS(); // wait 1us
-        SPI2BUF = 0xFFFE; // copy packet into appropriate buffer
-        while(!SPI2STATbits.SPIRBF); // packet transfer in progress
-        CS = 1;
-        delay1uS(); // wait 1us
-        rData = SPI2BUF; // read data       
-        CS = 0;
-        delay1uS(); // wait 1us
-        SPI2BUF = 0x0000;
-        while(!SPI2STATbits.SPIRBF); // packet transfer in progress
-        CS = 1;
-        delay1uS(); // wait 1us
-        dData = SPI2BUF;
-        //Protocol_SendMessage(4, 0x86, &dData);
+        dData = RotaryEncoder_ReadRawAngle();
+        Protocol_SendMessage(2, 0x86, &dData);
     }
 }
 #endif

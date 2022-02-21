@@ -73,7 +73,6 @@ unsigned short RotaryEncoder_ReadRawAngle(void) {
     CS = 1;
     delay1uS(); // wait 1us
     dData = SPI2BUF & 0b0011111111111111;
-    dData = Protocol_ShortEndednessConversion(dData);
     return dData;
 }
 
@@ -105,6 +104,7 @@ int main() {
 
     while(1) {
         dData = RotaryEncoder_ReadRawAngle();
+        dData = Protocol_ShortEndednessConversion(dData);
         Protocol_SendMessage(2, 0x86, &dData);
     }
 }

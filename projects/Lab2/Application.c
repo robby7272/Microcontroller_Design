@@ -42,6 +42,7 @@ int main() {
     unsigned short pingData;
     unsigned short ENCODER = 0;
     unsigned short PING = 0;
+    unsigned short ChosenTest = 0;
     
     char debugMessage[MAXPAYLOADLENGTH];
     sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
@@ -58,18 +59,14 @@ int main() {
                 break;
             }
         }
-        if (PORTFbits.RF1 == 1) {
-            ENCODER = 1;
-            PING = 0;
+        if (Protocol_ReadNextID() == ID_LAB2_INPUT_SELECT) {
+            Protocol_GetPayload(&ChosenTest);
         }
-        if (PORTDbits.RD5 == 1) {
-            ENCODER = 0;
-            PING = 1;
-        }
-        if (ENCODER == 1) {
+        if (ChosenTest == 1) {
             encoderData = RotaryEncoder_ReadRawAngle(); // maybe need to change endian here? 
-            //Protocol_SendMessage(2, 0x86, &encoderData);
             RCEncoderPulse = encoderData/13;
+            //encoderData = Protocol_ShortEndednessConversion(encoderData);
+            //Protocol_SendMessage(2, 0x86, &encoderData);
             if (RCEncoderPulse > RC_SERVO_MAX_PULSE) {
                 RCEncoderPulse = RC_SERVO_MAX_PULSE;
             }
@@ -78,7 +75,7 @@ int main() {
             }
             RCServo_SetPulseWithCorrectTicks(RCEncoderPulse);
         }
-        if (PING == 1) {
+        if (ChosenTest == 0) {
             pingData = PingSensor_GetDistance();
             RCPingPulse = pingData*3 + 600;
             if (RCPingPulse > RC_SERVO_MAX_PULSE) {

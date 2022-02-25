@@ -1,10 +1,16 @@
+#include <proc/p32mx320f128h.h>
+
 #include "NonVolatileMemory.h"
 #include "BOARD.h"
 
 /*******************************************************************************
  * PUBLIC #DEFINES                                                             *
  ******************************************************************************/
-
+void sendStart(void) {
+    I2C1CONbits.SEN = 1; // Send Start bit
+    while(I2C1CONbits.SEN == 1); // wait for Send transmission to be over
+    
+}
 /*******************************************************************************
  * PUBLIC FUNCTION PROTOTYPES                                                  *
  ******************************************************************************/
@@ -27,7 +33,48 @@ int NonVolatileMemory_Init(void) {
  * @return value at said address
  * @brief reads one byte from device
  * @warning Default value for this EEPROM is 0xFF */
-unsigned char NonVolatileMemory_ReadByte(int address);
+unsigned char NonVolatileMemory_ReadByte(int address) {
+    sendStart();
+    
+    I2C1TRN = 0b10100000; // last bit write-0, read-1
+    while(I2C1STATbits.TBF == 1); // wait for Transmit buffer 
+    
+    I2C1CONbits.ACKEN = 1; // acknowledge event
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK transmission
+    
+    I2C1TRN = (char) address >> 8; // high bits
+    while(I2C1STATbits.TBF == 1); // wait for Transmit buffer 
+    
+    I2C1CONbits.ACKEN = 1; // acknowledge event
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK transmission
+    
+    I2C1TRN = (char) address; // low bits
+    while(I2C1STATbits.TBF == 1); // wait for Transmit buffer
+    
+    I2C1CONbits.ACKEN = 1; // acknowledge event
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK transmission
+    
+    I2C1CONbits.RSEN = 1; // Repeat Start
+    while(I2C1CONbits.RSEN == 1); // wait for repeat transmission
+    
+    I2C1TRN = 0b10100001; // last bit write-0, read-1
+    while(I2C1STATbits.TBF == 1); // wait for Transmit buffer 
+    
+    I2C1CONbits.ACKEN = 1; // acknowledge event
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK transmission
+    
+    I2C1CONbits.RCEN = 1; // receive enable bit
+    while(I2C1CONbits.RCEN == 1);
+    unsigned char data = I2C1TRN;
+    
+    I2C1CONbits.ACKDT = 1; // NACK
+    I2C1CONbits.ACKEN = 1; // acknowledge event
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK transmission
+    I2C1CONbits.ACKDT = 0; // ACK
+    
+    I2C1CONbits.PEN = 1; // Send Stop bit
+    while(I2C1CONbits.PEN == 1); // wait for stop transmission
+}
 
 /**
  * @Function char NonVolatileMemory_WriteByte(int address, unsigned char data)
@@ -37,10 +84,9 @@ unsigned char NonVolatileMemory_ReadByte(int address);
  * @brief writes one byte to device */
 char NonVolatileMemory_WriteByte(int address, unsigned char data) {
     
-    I2C1CONbits.SEN = 1; // Send Start bit
-    while(I2C1CONbits.SEN == 1); // wait for Send transmission to be over
-    
-    I2C1TRN = 0b10100000;
+    sendStart();
+            
+    I2C1TRN = 0b10100000; // last bit write-0, read-1
     while(I2C1STATbits.TBF == 1); // wait for Transmit buffer 
     
     I2C1CONbits.ACKEN = 1; // acknowledge event

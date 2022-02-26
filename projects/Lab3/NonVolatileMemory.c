@@ -2,6 +2,9 @@
 
 #include "NonVolatileMemory.h"
 #include "BOARD.h"
+#include "MessageIDs.h"
+#include "FreeRunningTimer.h"
+#include "Protocol.h"
 
 /*******************************************************************************
  * PUBLIC #DEFINES                                                             *
@@ -134,5 +137,34 @@ int NonVolatileMemory_WritePage(int page, char length, unsigned char data[]);
 
 
 int main() {
-    while(1);
+    BOARD_Init();
+    FreeRunningTimer_Init();
+    Protocol_Init();
+    NonVolatileMemory_Init();
+    
+    
+    unsigned int ChosenTest = 0;
+    unsigned int load[2];
+    unsigned int address;
+    unsigned int data;
+    while(1) {
+        if (Protocol_ReadNextID() == ID_NVM_WRITE_BYTE) {
+            Protocol_GetPayload(&ChosenTest);
+            Protocol_GetPayload(&load);
+            address = Protocol_IntEndednessConversion(load[0]);
+            data = load[1] & 0b11111111;
+            ChosenTest = Protocol_IntEndednessConversion(ChosenTest); // flips to correct endianess for micro
+            
+            Protocol_SendMessage(2, 0x86, &ChosenTest);
+        }
+        else if (Protocol_ReadNextID() == ID_NVM_READ_BYTE) {
+            Protocol_GetPayload(&ChosenTest);
+        }
+        else if (Protocol_ReadNextID() == ID_NVM_WRITE_PAGE) {
+            Protocol_GetPayload(&ChosenTest);
+        }
+        else if (Protocol_ReadNextID() == ID_NVM_READ_PAGE) {
+            Protocol_GetPayload(&ChosenTest);
+        }
+    }
 }

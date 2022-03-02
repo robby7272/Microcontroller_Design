@@ -1,5 +1,3 @@
-#include <proc/p32mx320f128h.h>
-
 #include "NonVolatileMemory.h"
 #include "BOARD.h"
 #include "MessageIDs.h"
@@ -9,11 +7,7 @@
 /*******************************************************************************
  * PUBLIC #DEFINES                                                             *
  ******************************************************************************/
-void sendStart(void) {
-    I2C1CONbits.SEN = 1; // Send Start bit
-    while(I2C1CONbits.SEN == 1); // wait for Send transmission to be over
-    
-}
+
 /*******************************************************************************
  * PUBLIC FUNCTION PROTOTYPES                                                  *
  ******************************************************************************/
@@ -25,9 +19,11 @@ void sendStart(void) {
  * @brief initializes I2C for usage */
 int NonVolatileMemory_Init(void) {
     I2C1CON = 0; // clear control bits
-    I2C1BRG = 0xC2; // 100 KHz
-    I2C1CONbits.DISSLW = 1; // Disable slew rate
+    I2C1STAT=0;
+    I2C1BRG = 0x00C5;//0xC2; // 100 KHz
     I2C1CONbits.ON = 1; // turn on
+    I2C1CONbits.PEN = 1;
+    while(I2C1CONbits.PEN);
 }
 
 /**
@@ -36,53 +32,46 @@ int NonVolatileMemory_Init(void) {
  * @return value at said address
  * @brief reads one byte from device
  * @warning Default value for this EEPROM is 0xFF */
-unsigned char NonVolatileMemory_ReadByte(int address) {
-    
-    int x;
+unsigned char NonVolatileMemory_ReadByte(int address) {   
     I2C1CONbits.SEN = 1; // Send Start bit
     while(I2C1CONbits.SEN == 1); // wait for Send transmission to be over
     
     I2C1TRN = 0b10100000; // last bit write-0, read-1
+    while(I2C1STATbits.TRSTAT);
     while(I2C1STATbits.TBF == 1); // wait for Transmit and ACK
-    int test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
-    
+    while(I2C1STATbits.ACKSTAT == 1);  
     
     I2C1TRN = address >> 8; // high bits
+    while(I2C1STATbits.TRSTAT);
     while(I2C1STATbits.TBF == 1); // wait for Transmit and ACK
-    test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
+    while(I2C1STATbits.ACKSTAT == 1);
         
     I2C1TRN = address; // low bits
+    while(I2C1STATbits.TRSTAT);
     while(I2C1STATbits.TBF == 1); // wait for Transmit and ACK
-    test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
+    while(I2C1STATbits.ACKSTAT == 1);
     
     I2C1CONbits.RSEN = 1; // Repeat Start
     while(I2C1CONbits.RSEN == 1); // wait for repeat transmission
     
     I2C1TRN = 0b10100001; // last bit write-0, read-1
+    while(I2C1STATbits.TRSTAT);
     while(I2C1STATbits.TBF == 1); // wait for Transmit and ACK
-    test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
+    while(I2C1STATbits.ACKSTAT == 1);
     
     I2C1CONbits.RCEN = 1; // receive enable bit
     while(I2C1CONbits.RCEN == 1);
     unsigned char data = I2C1RCV;
+    while(I2C1STATbits.TRSTAT);
     
     I2C1CONbits.ACKDT = 1; // NACK
     I2C1CONbits.ACKEN = 1; // acknowledge event
     while(I2C1STATbits.TBF == 1); // wait for ACK transmission
-    test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
         
     I2C1CONbits.PEN = 1; // Send Stop bit
     while(I2C1CONbits.PEN == 1); // wait for stop transmission
+    
+    return data;
 }
 
 /**
@@ -93,33 +82,52 @@ unsigned char NonVolatileMemory_ReadByte(int address) {
  * @brief writes one byte to device */
 char NonVolatileMemory_WriteByte(int address, unsigned char data) {
     
-    int x;
+    if (I2C1STATbits.BCL == 1) {
+        int x = 5;
+    }
+    
     I2C1CONbits.SEN = 1; // Send Start bit
     while(I2C1CONbits.SEN == 1); // wait for Send transmission to be over
-            
+    
+    if (I2C1STATbits.BCL == 1) {
+        int x = 5;
+    }
+    
     I2C1TRN = 0b10100000; // last bit write-0, read-1
-    while(I2C1STATbits.TBF == 1); // wait for Transmit and ACK
-    int test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
+    while(I2C1STATbits.TRSTAT);
+    while(I2C1STATbits.TBF == 1); // wait for Transmit
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK
     
-    I2C1TRN = address >> 8; // high bits
-    while(I2C1STATbits.TBF == 1); // wait for Transmit and ACK
-    test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
+    if (I2C1STATbits.BCL == 1) {
+        int x = 5;
+    }
     
-    I2C1TRN = address; // low bits
-    while(I2C1STATbits.TBF == 1); // wait for Transmit and ACK
-    test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
+    I2C1TRN = (0xFF00 & address) >> 8; // high bits
+    while(I2C1STATbits.TRSTAT);
+    while(I2C1STATbits.TBF == 1); // wait for Transmit
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK
+
+    if (I2C1STATbits.BCL == 1) {
+        int x = 5;
+    }
+    
+    I2C1TRN = 0x00FF & address; // low bits
+    while(I2C1STATbits.TRSTAT);
+    while(I2C1STATbits.TBF == 1); // wait for Transmit
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK
+
+    if (I2C1STATbits.BCL == 1) {
+        int x = 5;
+    }
     
     I2C1TRN = data; // data
-    while(I2C1STATbits.TBF == 1); // wait for Transmit and ACK
-    test = I2C1STATbits.ACKSTAT;
-    if(test == 1) 
-        x = 5;//broken
+    while(I2C1STATbits.TRSTAT);
+    while(I2C1STATbits.TBF == 1); // wait for Transmit
+    while(I2C1STATbits.ACKSTAT == 1); // wait for ACK
+    
+    if (I2C1STATbits.BCL == 1) {
+        int x = 5;
+    }
     
     I2C1CONbits.PEN = 1; // Send Stop bit
     while(I2C1CONbits.PEN == 1); // wait for stop transmission
@@ -150,25 +158,28 @@ int main() {
     Protocol_Init();
     NonVolatileMemory_Init();
     
-    
-    unsigned int ChosenTest = 0;
+    unsigned int time1 = 0;
+    unsigned int time2 = 0;
     unsigned int load[2];
-    unsigned int address;
-    unsigned char address2;
-    unsigned char data;
+    unsigned int address = 0;
+    unsigned char data = 0;
     while(1) {
+        time1 = FreeRunningTimer_GetMilliSeconds();
+        while(1) {
+            time2 = FreeRunningTimer_GetMilliSeconds();
+            if (time1+100 < time2) {
+                break;
+            }
+        }
         if (Protocol_ReadNextID() == ID_NVM_WRITE_BYTE) {
-            Protocol_GetPayload(&ChosenTest);
             Protocol_GetPayload(&load);
             address = Protocol_IntEndednessConversion(load[0]);
             data = load[1] & 0b11111111;
             
-            //address2 = address >> 8;
+            
             NonVolatileMemory_WriteByte(address, data);
             
-            ChosenTest = Protocol_IntEndednessConversion(ChosenTest); // flips to correct endianess for micro
-            
-            //Protocol_SendMessage(2, 0x86, &ChosenTest);
+            Protocol_SendMessage(1, ID_NVM_WRITE_BYTE_ACK, &data);
         }
         else if (Protocol_ReadNextID() == ID_NVM_READ_BYTE) {
             Protocol_GetPayload(&load);
@@ -179,10 +190,10 @@ int main() {
             Protocol_SendMessage(1, ID_NVM_READ_BYTE_RESP, &data);
         }
         else if (Protocol_ReadNextID() == ID_NVM_WRITE_PAGE) {
-            Protocol_GetPayload(&ChosenTest);
+            Protocol_GetPayload(&data);
         }
         else if (Protocol_ReadNextID() == ID_NVM_READ_PAGE) {
-            Protocol_GetPayload(&ChosenTest);
+            Protocol_GetPayload(&data);
         }
     }
 }

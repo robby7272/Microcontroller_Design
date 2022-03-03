@@ -200,12 +200,9 @@ int main() {
     
     unsigned int time1 = 0;
     unsigned int time2 = 0;
-    unsigned int page = 0;
     unsigned int load[17];
     unsigned int address = 0;
-    unsigned char data = 0;
-    unsigned char pageData[64];
-    unsigned char length = 64;
+    unsigned char Data[64];
     while(1) {
         time1 = FreeRunningTimer_GetMilliSeconds();
         while(1) {
@@ -217,47 +214,45 @@ int main() {
         if (Protocol_ReadNextID() == ID_NVM_WRITE_BYTE) {
             Protocol_GetPayload(&load);
             address = Protocol_IntEndednessConversion(load[0]);
-            data = load[1] & 0b11111111;
+            Data[0] = load[1] & 0b11111111;
             
             
-            NonVolatileMemory_WriteByte(address, data);
+            NonVolatileMemory_WriteByte(address, Data[0]);
             
-            Protocol_SendMessage(1, ID_NVM_WRITE_BYTE_ACK, &data);
+            Protocol_SendMessage(1, ID_NVM_WRITE_BYTE_ACK, &Data[0]);
         }
         else if (Protocol_ReadNextID() == ID_NVM_READ_BYTE) {
             Protocol_GetPayload(&load);
             address = Protocol_IntEndednessConversion(load[0]);
             
-            data = NonVolatileMemory_ReadByte(address);
+            Data[0] = NonVolatileMemory_ReadByte(address);
             
-            Protocol_SendMessage(1, ID_NVM_READ_BYTE_RESP, &data);
+            Protocol_SendMessage(1, ID_NVM_READ_BYTE_RESP, &Data[0]);
         }
         else if (Protocol_ReadNextID() == ID_NVM_WRITE_PAGE) {
             Protocol_GetPayload(&load);
-            page = Protocol_IntEndednessConversion(load[0]);
+            address = Protocol_IntEndednessConversion(load[0]);
             
             int i;
             for (i = 0; i < 16; i++)
             {
-                pageData[(i*4)] = load[i+1];
-                pageData[(i*4)+1] = load[i+1] >> 8;
-                pageData[(i*4)+2] = load[i+1] >> 16;
-                pageData[(i*4)+3] = load[i+1] >> 24;
+                Data[(i*4)] = load[i+1];
+                Data[(i*4)+1] = load[i+1] >> 8;
+                Data[(i*4)+2] = load[i+1] >> 16;
+                Data[(i*4)+3] = load[i+1] >> 24;
             }
            
-            Protocol_SendMessage(64, ID_NVM_WRITE_PAGE, &pageData);
+            Protocol_SendMessage(64, ID_NVM_WRITE_PAGE, &Data);
             
-            NonVolatileMemory_WritePage(page, length, pageData);
-            int x = 5;
+            NonVolatileMemory_WritePage(address, 64, Data);
         }
         else if (Protocol_ReadNextID() == ID_NVM_READ_PAGE) {
             Protocol_GetPayload(&load);
-            page = Protocol_IntEndednessConversion(load[0]);
+            address = Protocol_IntEndednessConversion(load[0]);
             
-            NonVolatileMemory_ReadPage(page, length, pageData);
+            NonVolatileMemory_ReadPage(address, 64, Data);
             
-            Protocol_SendMessage(64, ID_NVM_READ_PAGE_RESP, &pageData);
-            int x = 5;
+            Protocol_SendMessage(64, ID_NVM_READ_PAGE_RESP, &Data);
         }
     }
 }

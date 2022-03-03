@@ -137,17 +137,19 @@ int NonVolatileMemory_ReadPage(int page, char length, unsigned char data[]) {
     I2C1TRN = 0b10100001; // last bit write-0, read-1
     while(I2C1STATbits.TRSTAT);
     
+    busIdle();
+    
     int i = 0;
     for (i = 0; i < 64; i++) {
         I2C1CONbits.RCEN = 1; // receive enable bit
         while(I2C1CONbits.RCEN == 1);
         busIdle();
         data[i] = I2C1RCV;
-        while(I2C1STATbits.TRSTAT);
-        
-        I2C1CONbits.ACKDT = 0; // ACK
-        I2C1CONbits.ACKEN = 1; // acknowledge event
-        while(I2C1STATbits.TBF == 1); // wait for ACK transmission
+        if (i < 63) {
+            I2C1CONbits.ACKDT = 0; // ACK
+            I2C1CONbits.ACKEN = 1; // acknowledge event
+            while(I2C1CONbits.ACKEN == 1); // wait for ACKEN transmission
+        }
     }
     
     I2C1CONbits.ACKDT = 1; // NACK

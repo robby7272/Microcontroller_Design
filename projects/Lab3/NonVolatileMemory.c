@@ -191,7 +191,8 @@ int NonVolatileMemory_WritePage(int page, char length, unsigned char data[]) {
     while(I2C1CONbits.PEN == 1); // wait for stop transmission
 }
 
-
+//#define NVMTest
+#ifdef NVMTest
 int main() {
     BOARD_Init();
     FreeRunningTimer_Init();
@@ -256,3 +257,4 @@ int main() {
         }
     }
 }
+#endif

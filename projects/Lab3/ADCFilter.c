@@ -125,10 +125,7 @@ int ADCFilter_SetWeights(short pin, short weights[]) {
 void __ISR(_ADC_VECTOR) ADCIntHandler(void) {
     IFS1bits.AD1IF = 0; // clear interrupt
     
-    Head += 1;
-    if  (Head == FILTERLENGTH) {
-        Head = 0;
-    }
+    Head = (Head+1)%FILTERLENGTH;
     
     data[0][Head] = ADC1BUF0;
     data[1][Head] = ADC1BUF1;
@@ -149,12 +146,22 @@ int main() {
     unsigned short filterValues[FILTERLENGTH];
     unsigned int time1 = 0;
     unsigned int time2 = 0;
-    
+    short raw[2];
     char debugMessage[MAXPAYLOADLENGTH];
     sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
     Protocol_SendDebugMessage(debugMessage);
     
     while(1) {
+        while(1) {
+            time2 = FreeRunningTimer_GetMilliSeconds();
+            if (time1+1000 < time2) {
+                break;
+            }
+        }
+        raw[0] = ADCFilter_RawReading(currChannel);
+        raw[1] = ADCFilter_FilteredReading(currChannel);
+        Protocol_SendMessage(1, ID_ADC_READING, &raw);
+        
         if (Protocol_ReadNextID() == ID_ADC_SELECT_CHANNEL) {
             Protocol_GetPayload(&currChannel);
             if (prevChannel != currChannel) {

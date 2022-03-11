@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "ADCFilter.h"
 #include "MessageIDs.h"
+#include "FrequencyGenerator.h"
 /*******************************************************************************
  * PUBLIC #DEFINES                                                             *
  ******************************************************************************/
@@ -103,7 +104,7 @@ short ADCFilter_ApplyFilter(short filter[], short values[], short startIndex) {
         sum += filter[i] * values[count];
         count = (count+1)%FILTERLENGTH;
     }
-    return (short) sum >> 15;
+    return (short) (sum >> 15) & 0xFFFF;
 }
 
 /**
@@ -141,12 +142,18 @@ int main() {
     Protocol_Init();
     FreeRunningTimer_Init();
     ADCFilter_Init();
+    FrequencyGenerator_Init();
     
     
-    unsigned short filterValues[FILTERLENGTH];
+    short filterValues[FILTERLENGTH];
+    short Values[FILTERLENGTH];
     unsigned int time1 = 0;
     unsigned int time2 = 0;
-    short raw[2];
+    short raw;
+    short filtered;
+    short generator;
+    unsigned int frequency;
+    int both = 0;
     char debugMessage[MAXPAYLOADLENGTH];
     sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
     Protocol_SendDebugMessage(debugMessage);
@@ -158,9 +165,12 @@ int main() {
                 break;
             }
         }
-        raw[0] = ADCFilter_RawReading(currChannel);
-        raw[1] = ADCFilter_FilteredReading(currChannel);
-        Protocol_SendMessage(1, ID_ADC_READING, &raw);
+        raw = ADCFilter_RawReading(currChannel);
+        filtered = ADCFilter_FilteredReading(currChannel);
+        both = (raw << 16) | filtered;
+        
+        both = Protocol_IntEndednessConversion(both);
+        Protocol_SendMessage(4, ID_ADC_READING, &both);
         
         if (Protocol_ReadNextID() == ID_ADC_SELECT_CHANNEL) {
             Protocol_GetPayload(&currChannel);
@@ -171,19 +181,26 @@ int main() {
         }
         if (Protocol_ReadNextID() == ID_ADC_FILTER_VALUES) {
             Protocol_GetPayload(&filterValues);
-            if (prevValue != filterValues[0]) {
-                int i = 0;
-                for (i = 0; i < FILTERLENGTH; i++) {
-                    filterValues[i] = Protocol_ShortEndednessConversion(filterValues[i]);
-                }
-                ADCFilter_SetWeights(currChannel, filterValues);
-                Protocol_SendMessage(1, ID_ADC_FILTER_VALUES_RESP, &currChannel);
-                filterValues[0] = Protocol_ShortEndednessConversion(filterValues[0]);
-                prevValue = filterValues[0];
+            int i = 0;
+            for (i = 0; i < FILTERLENGTH; i++) {
+                Values[i] = Protocol_ShortEndednessConversion(filterValues[i]);
             }
-            
+            ADCFilter_SetWeights(currChannel, Values);
+            //Protocol_SendMessage(1, ID_ADC_FILTER_VALUES_RESP, &currChannel);            
         }
-        
+        if (Protocol_ReadNextID() == ID_LAB3_FREQUENCY_ONOFF) {
+            Protocol_GetPayload(&generator);
+            if (generator) {
+                FrequencyGenerator_On();
+            } else {
+                FrequencyGenerator_Off();
+            }
+        }
+        if (Protocol_ReadNextID() == ID_LAB3_SET_FREQUENCY) {
+            Protocol_GetPayload(&frequency);
+            frequency = frequency & 0x0000FFFF;
+            FrequencyGenerator_SetFrequency(frequency);
+        }
         
     }
 }

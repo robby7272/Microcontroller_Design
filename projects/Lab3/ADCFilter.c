@@ -134,7 +134,7 @@ void __ISR(_ADC_VECTOR) ADCIntHandler(void) {
     data[3][Head] = ADC1BUF3;
 }
 
-#define filterTest
+//#define filterTest
 #ifdef filterTest
 int main() {
     BOARD_Init();
@@ -155,7 +155,7 @@ int main() {
     unsigned int frequency;
     int both = 0;
     char debugMessage[MAXPAYLOADLENGTH];
-    sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
+    sprintf(debugMessage, "ADCFilter Test Compiled at %s %s", __DATE__, __TIME__);
     Protocol_SendDebugMessage(debugMessage);
     
     while(1) {

@@ -27,7 +27,7 @@ unsigned char currChann = 0;
 unsigned char lowpass[64] = {0xFF, 0xCA, 0xFF, 0xC0, 0xFF, 0xAE, 0xFF, 0x9F, 0xFF, 0xA3, 0xFF, 0xD1, 0x00, 0x42, 0x01, 0x0A, 0x02, 0x32, 0x03, 0xB7, 0x05, 0x84, 0x07, 0x75, 0x09, 0x5C, 0x0B, 0x05, 0x0C, 0x40, 0x0C, 0xE8, 0x0C, 0xE8, 0x0C, 0x40, 0x0B, 0x05, 0x09, 0x5C, 0x07, 0x75, 0x05, 0x84, 0x03, 0xB7, 0x02, 0x32, 0x01, 0x0A, 0x00, 0x42, 0xFF, 0xD1, 0xFF, 0xA3, 0xFF, 0x9F, 0xFF, 0xAE, 0xFF, 0xC0, 0xFF, 0xCA};
 unsigned char highpass[64] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x27, 0xFF, 0xA5, 0x00, 0x8B, 0xFF, 0x7F, 0x00, 0x00, 0x01, 0x0F, 0xFD, 0x9F, 0x03, 0x40, 0xFD, 0x48, 0x00, 0x00, 0x05, 0x11, 0xF4, 0x3D, 0x12, 0x93, 0xE8, 0x55, 0x19, 0x8E, 0xE8, 0x55, 0x12, 0x93, 0xF4, 0x3D, 0x05, 0x11, 0x00, 0x00, 0xFD, 0x48, 0x03, 0x40, 0xFD, 0x9F, 0x01, 0x0F, 0x00, 0x00, 0xFF, 0x7F, 0x00, 0x8B, 0xFF, 0xA5, 0x00, 0x27, 0x00, 0x00};
 
-//#define application
+#define application
 #ifdef application
 int main() {
     BOARD_Init();
@@ -38,14 +38,14 @@ int main() {
     ADCFilter_Init();
     
     //store filters in nvm
-    NonVolatileMemory_WritePage(832, 64, lowpass);
-    NonVolatileMemory_WritePage(833, 64, highpass);
-    NonVolatileMemory_WritePage(834, 64, lowpass);
-    NonVolatileMemory_WritePage(835, 64, highpass);
-    NonVolatileMemory_WritePage(836, 64, lowpass);
-    NonVolatileMemory_WritePage(837, 64, highpass);
-    NonVolatileMemory_WritePage(838, 64, lowpass);
-    NonVolatileMemory_WritePage(839, 64, highpass);
+    NonVolatileMemory_WritePage(832, 64, lowpass); // switch 0, filter 0
+    NonVolatileMemory_WritePage(833, 64, highpass); // switch 0, filter 1
+    NonVolatileMemory_WritePage(834, 64, lowpass); // switch 1, filter 0
+    NonVolatileMemory_WritePage(835, 64, highpass); // switch 1, filter 1
+    NonVolatileMemory_WritePage(836, 64, lowpass); // switch 2, filter 0
+    NonVolatileMemory_WritePage(837, 64, highpass); // switch 2, filter 1
+    NonVolatileMemory_WritePage(838, 64, lowpass); // switch 3, filter 0
+    NonVolatileMemory_WritePage(839, 64, highpass); // switch 3, filter 1
     
     char debugMessage[MAXPAYLOADLENGTH];
     sprintf(debugMessage, "Lab3 Test Compiled at %s %s", __DATE__, __TIME__);
@@ -54,6 +54,18 @@ int main() {
     unsigned int time1;
     unsigned int time2;
     int display = 0;
+    unsigned int filterValues[16];
+    unsigned char Values[64];
+    short raw[64];
+    int count = 0;
+    short filtered;
+    int both = 0;
+    int address = 832;
+    unsigned char data[64];
+    short filter[32];
+    int max = 0;
+    int min = 0;
+    int difference;
     
     while(1) {
         time1 = FreeRunningTimer_GetMilliSeconds();
@@ -65,42 +77,116 @@ int main() {
         }
         uint8_t switchesState = SWITCH_STATES();
         if ((switchesState & SWITCH_STATE_SW2) && (switchesState & SWITCH_STATE_SW1)) {
-            // channel 3
             currChann = 0x30 | (currChann & 0x0F); // 110000
             Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-            LEDS_SET(0x01);
         } else if (switchesState & SWITCH_STATE_SW2) {
             currChann = 0x20 | (currChann & 0x0F); // 100000
             Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-            // channel 2
-            LEDS_SET(0x02);
         } else if (switchesState & SWITCH_STATE_SW1) {
             currChann = 0x10 | (currChann & 0x0F); // 10000
             Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-            // channel 1
-            LEDS_SET(0x04);
         } else {
             currChann = currChann & 0x0F;
             Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-            // channel 0
-            LEDS_SET(0x08);
-        }
-        
+        }        
         if(switchesState & SWITCH_STATE_SW3) {
             currChann = currChann | 0x01;
             Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
         } else {
             currChann = currChann & 0xF0;
             Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-        }
-        
+        }        
         if(switchesState & SWITCH_STATE_SW4) {
-            display = 1;
+            display = 1; // peak to peak
         } else {
-            display = 0;
+            display = 0; // absolute
         }
         
-
+        if (Protocol_ReadNextID() == ID_ADC_FILTER_VALUES) {
+            Protocol_GetPayload(&filterValues);            
+            int i;
+            for (i = 0; i < 16; i++)
+            {
+                Values[(i*4)] = filterValues[i];
+                Values[(i*4)+1] = filterValues[i] >> 8;
+                Values[(i*4)+2] = filterValues[i] >> 16;
+                Values[(i*4)+3] = filterValues[i] >> 24;
+            }
+            
+            address = 832 + (currChann & 0x0F) + (currChann >> 4 & 0x0F);
+            NonVolatileMemory_WritePage(address, 64, Values);
+        }
+        
+        raw[count] = ADCFilter_RawReading(currChann >> 4);
+        count = (count+1)%32;
+        int j = 0;
+        int k = 0;
+        for (k = 0,j = 0; k < 32; j = j + 2,k++) {
+            filter[k] = Values[j] << 8 | Values[j+1];
+            
+            if(filter[k] > max) {
+                max = filter[k];
+            }
+            if(filter[k] < min) {
+                min = filter[k];
+            }
+        }
+        
+        //NonVolatileMemory_ReadPage(832, 64, data);
+        
+        
+        filtered = ADCFilter_ApplyFilter(filter, raw, count);
+        both = (raw[count] << 16) | filtered;
+        
+        
+        if(display == 0) {
+            if(filtered < 0) {
+                filtered = filtered * -1;
+            }
+            
+            if(filtered > 700) {
+                LEDS_SET(0xFF);
+            } else if(filtered > 600) {
+                LEDS_SET(0x7F);
+            } else if(filtered > 500) {
+                LEDS_SET(0x3F);
+            } else if(filtered > 400) {
+                LEDS_SET(0x1F);
+            } else if(filtered > 300) {
+                LEDS_SET(0x0F);
+            } else if(filtered > 200) {
+                LEDS_SET(0x07);
+            } else if(filtered > 100) {
+                LEDS_SET(0x03);
+            } else if(filtered > 0) {
+                LEDS_SET(0x01);
+            }
+        } else {
+            difference = max - min;
+            
+            if(difference > 700) {
+                LEDS_SET(0xFF);
+            } else if(difference > 600) {
+                LEDS_SET(0x7F);
+            } else if(difference > 500) {
+                LEDS_SET(0x3F);
+            } else if(difference > 400) {
+                LEDS_SET(0x1F);
+            } else if(difference > 300) {
+                LEDS_SET(0x0F);
+            } else if(difference > 200) {
+                LEDS_SET(0x07);
+            } else if(difference > 100) {
+                LEDS_SET(0x03);
+            } else if(difference > 0) {
+                LEDS_SET(0x01);
+            }
+        }
+        
+        both = Protocol_IntEndednessConversion(both);
+        Protocol_SendMessage(4, ID_ADC_READING, &both);
+        max = 0;
+        min = 700;
     }
          
 }

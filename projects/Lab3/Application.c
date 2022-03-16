@@ -66,7 +66,7 @@ int main() {
     int max = 0;
     int min = 0;
     int difference;
-    
+    uint8_t switchesState = 0;
     while(1) {
         time1 = FreeRunningTimer_GetMilliSeconds();
         while(1) {
@@ -75,32 +75,35 @@ int main() {
                 break;
             }
         }
-        uint8_t switchesState = SWITCH_STATES();
-        if ((switchesState & SWITCH_STATE_SW2) && (switchesState & SWITCH_STATE_SW1)) {
-            currChann = 0x30 | (currChann & 0x0F); // 110000
-            Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-        } else if (switchesState & SWITCH_STATE_SW2) {
-            currChann = 0x20 | (currChann & 0x0F); // 100000
-            Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-        } else if (switchesState & SWITCH_STATE_SW1) {
-            currChann = 0x10 | (currChann & 0x0F); // 10000
-            Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-        } else {
-            currChann = currChann & 0x0F;
-            Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-        }        
-        if(switchesState & SWITCH_STATE_SW3) {
-            currChann = currChann | 0x01;
-            Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-        } else {
-            currChann = currChann & 0xF0;
-            Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
-        }        
-        if(switchesState & SWITCH_STATE_SW4) {
-            display = 1; // peak to peak
-        } else {
-            display = 0; // absolute
+        if (switchesState != SWITCH_STATES()) {
+            switchesState = SWITCH_STATES();
+            if ((switchesState & SWITCH_STATE_SW2) && (switchesState & SWITCH_STATE_SW1)) {
+                currChann = 0x30 | (currChann & 0x0F); // 110000
+                Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
+            } else if (switchesState & SWITCH_STATE_SW2) {
+                currChann = 0x20 | (currChann & 0x0F); // 100000
+                Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
+            } else if (switchesState & SWITCH_STATE_SW1) {
+                currChann = 0x10 | (currChann & 0x0F); // 10000
+                Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
+            } else {
+                currChann = currChann & 0x0F;
+                Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
+            }        
+            if(switchesState & SWITCH_STATE_SW3) {
+                currChann = currChann | 0x01;
+                Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
+            } else {
+                currChann = currChann & 0xF0;
+                Protocol_SendMessage(1, ID_LAB3_CHANNEL_FILTER, &currChann);
+            }        
+            if(switchesState & SWITCH_STATE_SW4) {
+                display = 1; // peak to peak
+            } else {
+                display = 0; // absolute
+            }
         }
+        
         
         if (Protocol_ReadNextID() == ID_ADC_FILTER_VALUES) {
             Protocol_GetPayload(&filterValues);            
@@ -191,4 +194,3 @@ int main() {
          
 }
 #endif
-

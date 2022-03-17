@@ -8,7 +8,7 @@
 #undef _SUPPRESS_PLIB_WARNING
 #endif
 
-#include <BOARD.h>
+#include "BOARD.h"
 #include <xc.h>
 
 

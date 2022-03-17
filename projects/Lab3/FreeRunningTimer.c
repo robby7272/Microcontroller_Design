@@ -9,7 +9,8 @@
 #include "BOARD.h"
 #include <sys/attribs.h>
 #include "Protocol.h"
-
+#include <stdio.h>
+#define CS LATDbits.LATD3
 unsigned int milliSecond = 0;
 unsigned int microSecond = 0;
 
@@ -32,6 +33,9 @@ void FreeRunningTimer_Init(void) {
     IEC0SET = 0x00100000; // Enable Timer5 interrupt
     
     T5CONbits.ON = 1; // Start timer
+    
+    TRISDbits.TRISD3 = 0;
+    CS = 1;
 }
 
 /**
@@ -57,6 +61,36 @@ void __ISR(_TIMER_5_VECTOR, ipl3auto) Timer5IntHandler(void) {
     IFS0CLR = 0x00100000; // clear Timer5 interrupt flag
     milliSecond += 1;
     microSecond += 1000;
-    TMR5 = 0x0;
 }
 
+//int main() {
+    
+//}
+
+
+//#define testHarness
+#ifdef testHarness
+int main() {
+    BOARD_Init();
+    LEDS_INIT();
+    Protocol_Init();
+    FreeRunningTimer_Init();
+    
+    char leds = 0x01;
+    char debugMessage[MAXPAYLOADLENGTH];
+    char timerMessage[MAXPAYLOADLENGTH];
+    sprintf(debugMessage, "Protocol Test Compiled at %s %s", __DATE__, __TIME__);
+    Protocol_SendDebugMessage(debugMessage);
+    while(1) {
+        if (FreeRunningTimer_GetMilliSeconds()%200 == 0) {
+            sprintf(timerMessage, "Milliseconds %u Microseconds %u", milliSecond, microSecond);
+            Protocol_SendDebugMessage(timerMessage);
+            LEDS_SET(leds);
+            leds = leds ^ 0x01; // flash led
+
+            PORTDbits.RD4;
+            CS = CS ^ 0x01;
+        }
+    }
+}
+#endif

@@ -58,10 +58,9 @@ int main() {
     unsigned char Values[64];
     short raw[64];
     int count = 0;
-    short filtered;
+    short filtered[64];
     int both = 0;
     int address = 832;
-    unsigned char data[64];
     short filter[32];
     int max = 0;
     int min = 0;
@@ -126,42 +125,43 @@ int main() {
         int k = 0;
         for (k = 0,j = 0; k < 32; j = j + 2,k++) {
             filter[k] = Values[j] << 8 | Values[j+1];
-            
-            if(filter[k] > max) {
-                max = filter[k];
-            }
-            if(filter[k] < min) {
-                min = filter[k];
-            }
         }
         
         //NonVolatileMemory_ReadPage(832, 64, data);
         
         
-        filtered = ADCFilter_ApplyFilter(filter, raw, count);
-        both = (raw[count] << 16) | filtered;
-        
+        filtered[count] = ADCFilter_ApplyFilter(filter, raw, count);
+        both = (raw[count] << 16) | filtered[count];
+        int a = 0;
+        for (a = 0; a < 32; a++) {
+            if(filtered[a] > max) {
+                max = filtered[a];
+            }
+            if(filtered[a] < min) {
+                min = filtered[a];
+            }
+        }
         
         if(display == 0) {
-            if(filtered < 0) {
-                filtered = filtered * -1;
+            if(filtered[count] < 0) {
+                filtered[count] = filtered[count] * -1;
             }
             
-            if(filtered > 700) {
+            if(filtered[count] > 700) {
                 LEDS_SET(0xFF);
-            } else if(filtered > 600) {
+            } else if(filtered[count] > 600) {
                 LEDS_SET(0x7F);
-            } else if(filtered > 500) {
+            } else if(filtered[count] > 500) {
                 LEDS_SET(0x3F);
-            } else if(filtered > 400) {
+            } else if(filtered[count] > 400) {
                 LEDS_SET(0x1F);
-            } else if(filtered > 300) {
+            } else if(filtered[count] > 300) {
                 LEDS_SET(0x0F);
-            } else if(filtered > 200) {
+            } else if(filtered[count] > 200) {
                 LEDS_SET(0x07);
-            } else if(filtered > 100) {
+            } else if(filtered[count] > 100) {
                 LEDS_SET(0x03);
-            } else if(filtered > 0) {
+            } else if(filtered[count] > 0) {
                 LEDS_SET(0x01);
             }
         } else {

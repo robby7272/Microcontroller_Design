@@ -16,4 +16,4 @@ Each lab folder also contains a README.md file, we do not grade those, feel free
 Occasionally we might need to update the provided files. We will do so by pushing a copy of ECE121.zip to CANVAS.
 When that occurs, and we will normally announce it, you will need to download and extract the new copies, and add them to your repo (overwriting the old files).
 
-**Note:** This should be a relatively rare occurance, but sometimes we find bugs in our code. More importantly, we expect *you* to find bugs in our code.
+**Note:** This should be a relatively rare occurance, but sometimes we find bugs in our code. More importantly, we expect *you* to find bugs in our code."# Microcontroller_Design" 
